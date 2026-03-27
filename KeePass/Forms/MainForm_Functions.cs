@@ -35,7 +35,10 @@ using KeePass.Ecas;
 using KeePass.Native;
 using KeePass.Plugins;
 using KeePass.Resources;
+using KeePass.Services;
 using KeePass.UI;
+using KeePass.UI.Accessibility;
+using KeePass.UI.Background;
 using KeePass.Util;
 using KeePass.Util.Archive;
 using KeePass.Util.MultipleValues;
@@ -1339,8 +1342,13 @@ namespace KeePass.Forms
 			else if(lviTarget != null) lvi.ForeColor = m_lvEntries.ForeColor;
 			else { Debug.Assert(UIUtil.ColorsEqual(lvi.ForeColor, m_lvEntries.ForeColor)); }
 
+			Color? clrLabel = ColorLabelService.GetColor(pe); // F9 — Color Labels
 			if(!UIUtil.ColorsEqual(pe.BackgroundColor, Color.Empty))
 				lvi.BackColor = pe.BackgroundColor;
+			else if(FavoritesService.IsFavorite(pe)) // F2 — fondo dorado suave
+				lvi.BackColor = Color.FromArgb(255, 252, 200);
+			else if(clrLabel.HasValue) // F9 — Color Label pastel
+				lvi.BackColor = ColorLabelService.Blend(clrLabel.Value);
 			else if(lviTarget != null) lvi.BackColor = m_lvEntries.BackColor;
 			else { Debug.Assert(UIUtil.ColorsEqual(lvi.BackColor, m_lvEntries.BackColor)); }
 
@@ -1492,6 +1500,7 @@ namespace KeePass.Forms
 			if(tnTop != null) m_tvGroups.TopNode = tnTop;
 
 			m_tvGroups.EndUpdate();
+			GroupTreeFilter.Refresh(); // F15-F — actualizar filtro de grupos
 			--m_uBlockGroupSelectionEvent;
 		}
 
@@ -2259,14 +2268,14 @@ namespace KeePass.Forms
 		}
 
 		private void PerformSearchQuick(string strSearch, bool bForceShowExpired,
-			bool bRespectEntrySearchingDisabled)
+			bool bRespectEntrySearchingDisabled, bool bLiveSearch = false)
 		{
 			if(strSearch == null) { Debug.Assert(false); strSearch = string.Empty; }
 
 			if(m_uBlockQuickFind != 0) return;
 
 			DateTime dt = DateTime.UtcNow;
-			if(((dt - m_dtLastQuickFind).TotalSeconds < 1.0) &&
+			if(!bLiveSearch && ((dt - m_dtLastQuickFind).TotalSeconds < 1.0) &&
 				(strSearch == m_strLastQuickFind))
 			{
 				Debug.Assert(false); // Multiple event handlers?
@@ -2278,7 +2287,10 @@ namespace KeePass.Forms
 			++m_uBlockQuickFind;
 
 			m_tbQuickFind.DroppedDown = false;
-			if(strSearch.Length != 0)
+
+			// F15-A: live search skips history update to avoid disrupting
+			// cursor / selection state while the user is still typing.
+			if(!bLiveSearch && strSearch.Length != 0)
 			{
 				for(int i = m_tbQuickFind.Items.Count - 1; i >= 0; --i)
 				{
@@ -2322,9 +2334,19 @@ namespace KeePass.Forms
 			SearchUtil.SetTransformation(sp, (Program.Config.MainWindow.QuickFindDerefData ?
 				SearchUtil.StrTrfDeref : string.Empty));
 
-			PerformSearch(sp, false, Program.Config.MainWindow.FocusResultsAfterQuickFind);
+			bool bFocus = !bLiveSearch && Program.Config.MainWindow.FocusResultsAfterQuickFind;
+			PerformSearch(sp, false, bFocus);
+
+			// F15-A: notify LiveSearchBox so it can update the result count label
+			LiveSearchBox.SearchCompleted(m_lvEntries.Items.Count);
 
 			--m_uBlockQuickFind;
+		}
+
+		// F15-A: called by the LiveSearchBox debounce timer on the UI thread
+		internal void PerformSearchQuickLive(string strSearch)
+		{
+			PerformSearchQuick(strSearch, false, true, true);
 		}
 
 		private void ShowExpiredEntries(bool bOnlyIfExists, bool bShowExpired,
@@ -3102,6 +3124,10 @@ namespace KeePass.Forms
 			}
 			else if(wParam == AppDefs.GlobalHotKeyId.EntryMenu)
 				EntryMenu.Show();
+			else if(wParam == AppDefs.GlobalHotKeyId.MiniSearch) // F16
+				MiniSearchPopup.Toggle();
+			else if(wParam == AppDefs.GlobalHotKeyId.ShortcutOverlay) // F14
+				ShortcutOverlayForm.Toggle(this);
 			else { Debug.Assert(false); }
 		}
 
@@ -3361,6 +3387,28 @@ namespace KeePass.Forms
 			m_fontItalicTree = FontUtil.CreateFont(fList, fList.Style | FontStyle.Italic);
 		}
 
+		// F15-G — Font scale: apply a scale multiplier to the list font.
+		// Called by FontScaleManager; also triggered by Ctrl+Wheel.
+		internal void SetFontScale(float scale)
+		{
+			Font fBase = UISystemFonts.ListFont ?? SystemFonts.DefaultFont;
+
+			if(Math.Abs(scale - 1.0f) <= 0.005f)
+			{
+				// Reset to system default — OverrideUIDefault = false
+				AceFont af = new AceFont(fBase, false);
+				SetListFont(af);
+			}
+			else
+			{
+				float fSize = Math.Max(6.0f, Math.Min(72.0f, fBase.Size * scale));
+				Font fScaled = new Font(fBase.FontFamily, fSize, fBase.Style, fBase.Unit);
+				AceFont af = new AceFont(fScaled, true); // OverrideUIDefault = true
+				fScaled.Dispose();
+				SetListFont(af);
+			}
+		}
+
 		private void SetSelectedEntryColor(Color clrBack)
 		{
 			PwDatabase pd = m_docMgr.ActiveDatabase;
@@ -3616,6 +3664,13 @@ namespace KeePass.Forms
 			m_milMain.CreateCopy(tsicECMove, null, false, m_menuEntryMoveOneUp);
 			m_milMain.CreateCopy(tsicECMove, null, false, m_menuEntryMoveToTop);
 			m_milMain.CreateCopy(tsicECMove, null, true, m_menuEntryMoveToPreviousParent);
+
+			// F2 — Favoritos: añadir ítem al menú contextual
+			m_menuEntryFavorite = new ToolStripMenuItem();
+			m_menuEntryFavorite.Text = "\u2605 Marcar como favorito";
+			m_menuEntryFavorite.Click += this.OnEntryToggleFavorite;
+			tsicEC.Add(new ToolStripSeparator());
+			tsicEC.Add(m_menuEntryFavorite);
 
 			sls.Dispose();
 		}
@@ -4840,6 +4895,19 @@ namespace KeePass.Forms
 				else if(kc == Keys.Tab)
 				{
 					if(bDown) ActivateNextDocumentEx(bShift ? -1 : 1);
+				}
+				// F15-G — Font scale shortcuts
+				else if(kc == Keys.Oemplus || kc == Keys.Add)
+				{
+					if(bDown) FontScaleManager.ZoomIn();
+				}
+				else if(kc == Keys.OemMinus || kc == Keys.Subtract)
+				{
+					if(bDown) FontScaleManager.ZoomOut();
+				}
+				else if(kc == Keys.D0 || kc == Keys.NumPad0)
+				{
+					if(bDown) FontScaleManager.ResetZoom();
 				}
 				else bHandled = false;
 			}
@@ -6405,6 +6473,9 @@ namespace KeePass.Forms
 			m_ctxTrayCancel.Enabled = (m_sCancellable.Count != 0);
 			m_ctxTrayLock.Enabled = IsCommandTypeInvokable(s, AppCommandType.Lock);
 			m_ctxTrayFileExit.Enabled = bInvkWnd;
+
+			TrayIconController.UpdateState(this); // F16
+			TrayMenuBuilder.EnrichTrayMenu(m_ctxTray, this); // F16
 		}
 
 		internal static SprContext GetEntryListSprContext(PwEntry pe,

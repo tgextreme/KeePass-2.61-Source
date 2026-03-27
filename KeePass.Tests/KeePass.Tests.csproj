@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>KeePass.Tests</RootNamespace>
+    <AssemblyName>KeePass.Tests</AssemblyName>
+    <Nullable>disable</Nullable>
+    <LangVersion>7.3</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.9.0" />
+    <PackageReference Include="MSTest.TestAdapter"     Version="3.2.2" />
+    <PackageReference Include="MSTest.TestFramework"   Version="3.2.2" />
+  </ItemGroup>
+
+  <!-- Reference the KeePass executable as an assembly (contains KeePassLib sources too) -->
+  <ItemGroup>
+    <Reference Include="KeePass">
+      <HintPath>..\KeePass\obj\Debug\KeePass.exe</HintPath>
+      <Private>true</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

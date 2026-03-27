@@ -10,8 +10,8 @@
     <RootNamespace>KeePass</RootNamespace>
     <AssemblyName>KeePass</AssemblyName>
     <ApplicationIcon>KeePass.ico</ApplicationIcon>
-    <SignAssembly>true</SignAssembly>
-    <AssemblyOriginatorKeyFile>KeePass.pfx</AssemblyOriginatorKeyFile>
+    <SignAssembly>false</SignAssembly>
+    <!--<AssemblyOriginatorKeyFile>KeePass.pfx</AssemblyOriginatorKeyFile>-->
     <FileUpgradeFlags>
     </FileUpgradeFlags>
     <OldToolsVersion>3.5</OldToolsVersion>
@@ -1247,6 +1247,73 @@
     <Compile Include="Util\XmlSerialization\XmlSerializerEx.cs" />
     <Compile Include="Util\XmlUtil.Merge.cs" />
     <Compile Include="Util\XmlUtil.Replace.cs" />
+    <!-- F2 Favoritos -->
+    <Compile Include="Services\FavoritesService.cs" />
+    <Compile Include="UI\FavoriteColumnProvider.cs" />
+    <!-- F8 Backup Automático -->
+    <Compile Include="App\Configuration\AceBackup.cs" />
+    <Compile Include="Services\BackupService.cs" />
+    <!-- F15-G Font Scale + Layout -->
+    <Compile Include="App\Configuration\AceLayout.cs" />
+    <Compile Include="UI\FontScaleManager.cs" />
+    <!-- F15-A Live Search -->
+    <Compile Include="UI\LiveSearchBox.cs" />
+    <!-- F15-C Estado de seguridad -->
+    <Compile Include="UI\EntryStatusRenderer.cs" />
+    <!-- F15-F Filtro de árbol de grupos -->
+    <Compile Include="UI\GroupTreeFilter.cs" />
+    <!-- F15-D Rich Tooltips -->
+    <Compile Include="UI\RichTooltipProvider.cs" />
+    <!-- F16 Background Mode + Tray -->
+    <Compile Include="App\Configuration\AceBackgroundMode.cs" />
+    <Compile Include="Infrastructure\Background\WindowsStartupHelper.cs" />
+    <Compile Include="Infrastructure\Background\BackgroundModeManager.cs" />
+    <Compile Include="UI\Background\TrayIconController.cs" />
+    <Compile Include="UI\Background\TrayMenuBuilder.cs" />
+    <Compile Include="UI\Background\MiniSearchPopup.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <!-- F14 Menús Accesibles -->
+    <Compile Include="App\Configuration\AceQuickActionsBar.cs" />
+    <Compile Include="UI\Accessibility\QuickActionsBar.cs" />
+    <Compile Include="UI\Accessibility\BreadcrumbBar.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <Compile Include="UI\Accessibility\ShortcutOverlayForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="UI\Accessibility\RecentEntriesNotifyMenu.cs" />
+    <Compile Include="UI\Accessibility\AccessibleContextMenuBuilder.cs" />
+    <!-- F4 Alertas de Expiración -->
+    <Compile Include="Services\ExpiryService.cs" />
+    <Compile Include="Infrastructure\Security\ExpiryWatcher.cs" />
+    <Compile Include="Forms\ExpiryAlertForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <!-- F5 Panel Vista Previa -->
+    <Compile Include="UI\EntryPreviewPanel.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
+    <!-- F9 Color Labels -->
+    <Compile Include="Services\ColorLabelService.cs" />
+    <!-- F3 Favicon Downloader -->
+    <Compile Include="Services\FaviconService.cs" />
+    <Compile Include="Forms\FaviconDownloadForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <!-- F1 HIBP Checker -->
+    <Compile Include="Services\HibpService.cs" />
+    <Compile Include="Forms\HibpCheckForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <!-- F6 TOTP Column -->
+    <Compile Include="Services\TotpService.cs" />
+    <Compile Include="UI\TotpColumnProvider.cs" />
+    <!-- F12 Markdown Notes -->
+    <Compile Include="Infrastructure\MarkdownRenderer.cs" />
+    <Compile Include="UI\MarkdownPreviewControl.cs">
+      <SubType>UserControl</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\Nuvola\B16x16_1DownArrow.png" />
@@ -1476,6 +1543,6 @@
   </Target>
   -->
   <PropertyGroup>
-    <PostBuildEvent>"$(SDK40ToolsPath)sgen.exe" /assembly:"$(TargetPath)" /force /nologo /compiler:/keycontainer:VS_KEY_8C26407DBC890166 /compiler:/delaysign-</PostBuildEvent>
+    <PostBuildEvent>"$(SDK40ToolsPath)sgen.exe" /assembly:"$(TargetPath)" /force /nologo</PostBuildEvent>
   </PropertyGroup>
 </Project>

@@ -398,6 +398,10 @@
     <Compile Include="App\Configuration\AceCustomConfig.cs" />
     <Compile Include="App\Configuration\AceDefaults.cs" />
     <Compile Include="App\Configuration\AceIntegration.cs" />
+    <Compile Include="App\Configuration\AceBackup.cs" />
+    <Compile Include="App\Configuration\AceBackgroundMode.cs" />
+    <Compile Include="App\Configuration\AceLayout.cs" />
+    <Compile Include="App\Configuration\AceQuickActionsBar.cs" />
     <Compile Include="App\Configuration\AceLogging.cs" />
     <Compile Include="App\Configuration\AceMainWindow.cs" />
     <Compile Include="App\Configuration\AceNative.cs" />
@@ -537,6 +541,15 @@
       <DependentUpon>ColumnsForm.cs</DependentUpon>
     </Compile>
     <Compile Include="Forms\CsvImportForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\ExpiryAlertForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\FaviconDownloadForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\HibpCheckForm.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Forms\CsvImportForm.Designer.cs">
@@ -849,8 +862,38 @@
     <Compile Include="UI\ColorMenuItem.cs">
       <SubType>Component</SubType>
     </Compile>
+    <Compile Include="Services\FavoritesService.cs" />
+    <Compile Include="Services\BackupService.cs" />
+    <Compile Include="Services\ExpiryService.cs" />
+    <Compile Include="Services\ColorLabelService.cs" />
+    <Compile Include="Services\FaviconService.cs" />
+    <Compile Include="Services\HibpService.cs" />
+    <Compile Include="Services\TotpService.cs" />
+    <Compile Include="Infrastructure\Background\WindowsStartupHelper.cs" />
+    <Compile Include="Infrastructure\Background\BackgroundModeManager.cs" />
+    <Compile Include="Infrastructure\Security\ExpiryWatcher.cs" />
+    <Compile Include="Infrastructure\MarkdownRenderer.cs" />
+    <Compile Include="UI\Background\TrayIconController.cs" />
+    <Compile Include="UI\Background\TrayMenuBuilder.cs" />
+    <Compile Include="UI\Accessibility\AccessibleContextMenuBuilder.cs" />
+    <Compile Include="UI\Accessibility\BreadcrumbBar.cs" />
+    <Compile Include="UI\Accessibility\QuickActionsBar.cs" />
+    <Compile Include="UI\Accessibility\RecentEntriesNotifyMenu.cs" />
+    <Compile Include="UI\Accessibility\ShortcutOverlayForm.cs" />
+    <Compile Include="UI\Background\MiniSearchPopup.cs">
+      <SubType>Form</SubType>
+    </Compile>
     <Compile Include="UI\ColumnProvider.cs" />
     <Compile Include="UI\ColumnProviderPool.cs" />
+    <Compile Include="UI\FavoriteColumnProvider.cs" />
+    <Compile Include="UI\TotpColumnProvider.cs" />
+    <Compile Include="UI\EntryStatusRenderer.cs" />
+    <Compile Include="UI\FontScaleManager.cs" />
+    <Compile Include="UI\EntryPreviewPanel.cs" />
+    <Compile Include="UI\LiveSearchBox.cs" />
+    <Compile Include="UI\GroupTreeFilter.cs" />
+    <Compile Include="UI\RichTooltipProvider.cs" />
+    <Compile Include="UI\MarkdownPreviewControl.cs" />
     <Compile Include="UI\CustomContextMenuEx.cs">
       <SubType>Component</SubType>
     </Compile>

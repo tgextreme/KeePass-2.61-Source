@@ -70,6 +70,18 @@ namespace KeePass.Util.XmlSerialization
 					case "Custom":
 						o.CustomSerialized = ReadArrayOfAceKvp(xr);
 						break;
+					case "Backup":
+						o.Backup = ReadAceBackup(xr);
+						break;
+					case "BackgroundMode":
+						o.BackgroundMode = ReadAceBackgroundMode(xr);
+						break;
+					case "Layout":
+						o.Layout = ReadAceLayout(xr);
+						break;
+					case "QuickActionsBar":
+						o.QuickActionsBar = ReadAceQuickActionsBar(xr);
+						break;
 					default:
 						Debug.Assert(false);
 						xr.Skip();
@@ -3532,6 +3544,192 @@ namespace KeePass.Util.XmlSerialization
 						break;
 					case "Parameters":
 						o.Parameters = ReadListOfString(xr);
+						break;
+					default:
+						Debug.Assert(false);
+						xr.Skip();
+						break;
+				}
+
+				xr.MoveToContent();
+			}
+
+			Debug.Assert(xr.NodeType == XmlNodeType.EndElement);
+			xr.ReadEndElement();
+			return o;
+		}
+
+		private static KeePass.App.Configuration.AceBackup ReadAceBackup(XmlReader xr)
+		{
+			KeePass.App.Configuration.AceBackup o = new KeePass.App.Configuration.AceBackup();
+
+			if(SkipEmptyElement(xr)) return o;
+
+			Debug.Assert(xr.NodeType == XmlNodeType.Element);
+			xr.ReadStartElement();
+			xr.MoveToContent();
+
+			while(true)
+			{
+				XmlNodeType nt = xr.NodeType;
+				if((nt == XmlNodeType.EndElement) || (nt == XmlNodeType.None)) break;
+				if(nt != XmlNodeType.Element) { Debug.Assert(false); xr.Skip(); continue; }
+
+				switch(xr.LocalName)
+				{
+					case "Enabled":
+						o.Enabled = ReadBoolean(xr);
+						break;
+					case "Folder":
+						o.Folder = ReadString(xr);
+						break;
+					case "MaxKeep":
+						o.MaxKeep = ReadInt32(xr);
+						break;
+					case "BackupOnSave":
+						o.BackupOnSave = ReadBoolean(xr);
+						break;
+					default:
+						Debug.Assert(false);
+						xr.Skip();
+						break;
+				}
+
+				xr.MoveToContent();
+			}
+
+			Debug.Assert(xr.NodeType == XmlNodeType.EndElement);
+			xr.ReadEndElement();
+			return o;
+		}
+
+		private static KeePass.App.Configuration.AceBackgroundMode ReadAceBackgroundMode(XmlReader xr)
+		{
+			KeePass.App.Configuration.AceBackgroundMode o = new KeePass.App.Configuration.AceBackgroundMode();
+
+			if(SkipEmptyElement(xr)) return o;
+
+			Debug.Assert(xr.NodeType == XmlNodeType.Element);
+			xr.ReadStartElement();
+			xr.MoveToContent();
+
+			while(true)
+			{
+				XmlNodeType nt = xr.NodeType;
+				if((nt == XmlNodeType.EndElement) || (nt == XmlNodeType.None)) break;
+				if(nt != XmlNodeType.Element) { Debug.Assert(false); xr.Skip(); continue; }
+
+				switch(xr.LocalName)
+				{
+					case "RunInBackground":
+						o.RunInBackground = ReadBoolean(xr);
+						break;
+					case "StartWithWindows":
+						o.StartWithWindows = ReadBoolean(xr);
+						break;
+					case "StartMinimized":
+						o.StartMinimized = ReadBoolean(xr);
+						break;
+					case "MinimizeToTray":
+						o.MinimizeToTray = ReadBoolean(xr);
+						break;
+					case "CloseToTray":
+						o.CloseToTray = ReadBoolean(xr);
+						break;
+					case "ShowRecentCount":
+						o.ShowRecentCount = ReadInt32(xr);
+						break;
+					default:
+						Debug.Assert(false);
+						xr.Skip();
+						break;
+				}
+
+				xr.MoveToContent();
+			}
+
+			Debug.Assert(xr.NodeType == XmlNodeType.EndElement);
+			xr.ReadEndElement();
+			return o;
+		}
+
+		private static KeePass.App.Configuration.AceLayout ReadAceLayout(XmlReader xr)
+		{
+			KeePass.App.Configuration.AceLayout o = new KeePass.App.Configuration.AceLayout();
+
+			if(SkipEmptyElement(xr)) return o;
+
+			Debug.Assert(xr.NodeType == XmlNodeType.Element);
+			xr.ReadStartElement();
+			xr.MoveToContent();
+
+			while(true)
+			{
+				XmlNodeType nt = xr.NodeType;
+				if((nt == XmlNodeType.EndElement) || (nt == XmlNodeType.None)) break;
+				if(nt != XmlNodeType.Element) { Debug.Assert(false); xr.Skip(); continue; }
+
+				switch(xr.LocalName)
+				{
+					case "FontScale":
+						o.FontScale = ReadSingle(xr);
+						break;
+					default:
+						Debug.Assert(false);
+						xr.Skip();
+						break;
+				}
+
+				xr.MoveToContent();
+			}
+
+			Debug.Assert(xr.NodeType == XmlNodeType.EndElement);
+			xr.ReadEndElement();
+			return o;
+		}
+
+		private static KeePass.App.Configuration.AceQuickActionsBar ReadAceQuickActionsBar(XmlReader xr)
+		{
+			KeePass.App.Configuration.AceQuickActionsBar o = new KeePass.App.Configuration.AceQuickActionsBar();
+
+			if(SkipEmptyElement(xr)) return o;
+
+			Debug.Assert(xr.NodeType == XmlNodeType.Element);
+			xr.ReadStartElement();
+			xr.MoveToContent();
+
+			while(true)
+			{
+				XmlNodeType nt = xr.NodeType;
+				if((nt == XmlNodeType.EndElement) || (nt == XmlNodeType.None)) break;
+				if(nt != XmlNodeType.Element) { Debug.Assert(false); xr.Skip(); continue; }
+
+				switch(xr.LocalName)
+				{
+					case "Visible":
+						o.Visible = ReadBoolean(xr);
+						break;
+					case "Position":
+					{
+						string strPos = ReadString(xr);
+						int nPos;
+						if(int.TryParse(strPos, out nPos))
+							o.Position = (KeePass.App.Configuration.QuickActionsBarPosition)nPos;
+						else
+							o.Position = (KeePass.App.Configuration.QuickActionsBarPosition)Enum.Parse(
+								typeof(KeePass.App.Configuration.QuickActionsBarPosition), strPos, true);
+						break;
+					}
+					case "ButtonIds":
+						o.ButtonIds = new System.Collections.Generic.List<string>();
+						if(!SkipEmptyElement(xr))
+						{
+							xr.ReadStartElement();
+							xr.MoveToContent();
+							while(xr.NodeType == XmlNodeType.Element)
+								{ o.ButtonIds.Add(ReadString(xr)); xr.MoveToContent(); }
+							xr.ReadEndElement();
+						}
 						break;
 					default:
 						Debug.Assert(false);

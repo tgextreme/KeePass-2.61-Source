@@ -33,7 +33,11 @@ using KeePass.DataExchange;
 using KeePass.Ecas;
 using KeePass.Native;
 using KeePass.Resources;
+using KeePass.Services;
 using KeePass.UI;
+using KeePass.UI.Accessibility;
+using KeePass.UI.Background;
+using KeePass.Infrastructure.Background;
 using KeePass.Util;
 using KeePass.Util.Spr;
 
@@ -75,6 +79,28 @@ namespace KeePass.Forms
 		private uint m_uBlockEntrySelectionRestoration = 0;
 
 		private bool m_bForceExitOnce = false;
+
+		// F2 — Favoritos
+		private ToolStripMenuItem m_menuEntryFavorite = null;
+
+		// F14 — Menús más Accesibles y Reorganizados
+		private QuickActionsBar m_quickActionsBar = null;
+		private BreadcrumbBar m_breadcrumbBar = null;
+
+		// F4 — Alertas de Expiración
+		private KeePass.Infrastructure.Security.ExpiryWatcher m_expiryWatcher = null;
+
+		// F5 — Panel de Vista Previa
+		private EntryPreviewPanel m_entryPreviewPanel = null;
+
+		// F9 — Color Labels
+		private ToolStripMenuItem m_ctxEntryColorLabel = null;
+
+		// F3 — Favicon Downloader
+		private ToolStripMenuItem m_ctxEntryDownloadFavicons = null;
+
+		// F1 — HIBP Checker
+		private ToolStripMenuItem m_menuToolsHibpCheck = null;
 
 		public MainForm()
 		{
@@ -297,7 +323,12 @@ namespace KeePass.Forms
 				string.Empty : " ") + KPRes.Search);
 			m_cmbQuickFind = m_tbQuickFind.ComboBox;
 			if (m_cmbQuickFind != null)
+			{
 				m_cmbQuickFind.SelectionChangeCommitted += this.OnQuickFindSelectionChangeCommitted;
+				// F15-A — Live Search Bar
+				LiveSearchBox.Attach(m_cmbQuickFind, m_toolMain, m_tbQuickFind,
+					this.PerformSearchQuickLive);
+			}
 			else { Debug.Assert(false); }
 
 			bool bVisible = Program.Config.MainWindow.ToolBar.Show;
@@ -385,6 +416,7 @@ namespace KeePass.Forms
 			SerializeMruList(false);
 
 			SetListFont(Program.Config.UI.StandardFont);
+			FontScaleManager.Attach(this); // F15-G — font scale (also applies stored scale)
 
 			int w = DpiUtil.ScaleIntX(16), h = DpiUtil.ScaleIntY(16);
 			Image imgC = UIUtil.CreateColorBitmap24(w, h, AppDefs.NamedEntryColor.LightRed);
@@ -435,10 +467,93 @@ namespace KeePass.Forms
 			Program.KeyProviderPool.Add(new KeePassLib.Keys.SampleKeyProvider());
 #endif
 
+			Program.ColumnProviderPool.Add(new FavoriteColumnProvider()); // F2 — Favoritos
+			Program.ColumnProviderPool.Add(new TotpColumnProvider());    // F6 — TOTP Column
+			Program.ColumnProviderPool.Add(new EntryStatusRenderer());  // F15-C — Estado de seguridad
+			this.FileSaved += BackupService.OnDatabaseSaved; // F8 — Backup automático
+
+			TrayIconController.Initialize(m_ntfTray); // F16 — Tray state
+			HotKeyManager.Initialize(this);
+			BackgroundModeManager.Start(this);        // F16 — Background mode
+
+			// F4 — Alertas de Expiración
+			m_expiryWatcher = new KeePass.Infrastructure.Security.ExpiryWatcher();
+			this.FileOpened += OnFileOpenedExpiryCheck;
+
+			// F14 — Barras de accesibilidad
+			m_quickActionsBar = new QuickActionsBar();
+			m_quickActionsBar.Initialize(Program.Config.QuickActionsBar, new QuickActionsBarActions
+			{
+				NewEntry  = () => m_tbAddEntry.PerformClick(),
+				Search    = () => m_tbFind.PerformClick(),
+				CopyPW    = () => m_tbCopyPassword.PerformClick(),
+				CopyUser  = () => m_tbCopyUserName.PerformClick(),
+				OpenURL   = () => m_tbOpenUrl.PerformClick(),
+				Favorite  = () =>
+				{
+					PwEntry pe = GetSelectedEntry(false);
+					if(pe != null) { FavoritesService.Toggle(pe); UpdateEntryList(null, false); }
+				},
+				Lock = () => m_tbLockWorkspace.PerformClick(),
+			});
+			m_splitVertical.Panel2.Controls.Add(m_quickActionsBar);
+
+			m_breadcrumbBar = new BreadcrumbBar();
+			m_splitVertical.Panel2.Controls.Add(m_breadcrumbBar);
+
+			// F5 — Panel de Vista Previa (Dock=Right, m_lvEntries Dock=Fill → toma el resto)
+			m_entryPreviewPanel = new EntryPreviewPanel();
+			m_splitVertical.Panel2.Controls.Add(m_entryPreviewPanel);
+
+			AccessibleContextMenuBuilder.Attach(m_ctxPwList); // F14
+			HotKeyManager.RegisterHotKey(AppDefs.GlobalHotKeyId.ShortcutOverlay, Keys.F1); // F14
+
+			GroupTreeFilter.Attach(m_splitVertical.Panel1, m_tvGroups); // F15-F — filtro árbol de grupos
+			RichTooltipProvider.Attach(m_lvEntries); // F15-D — tooltips enriquecidos
+
+			// F9 — Color Labels: submenú "Etiquetar color" en el menú contextual de entradas
+			m_ctxEntryColorLabel = new ToolStripMenuItem("Etiquetar \u2022 Color");
+			for(int ci = 0; ci < ColorLabelService.PredefinedColors.Length; ci++)
+			{
+				Color clr = ColorLabelService.PredefinedColors[ci];
+				string name = ColorLabelService.PredefinedColorNames[ci];
+				int sw = DpiUtil.ScaleIntX(14), sh = DpiUtil.ScaleIntY(14);
+				ToolStripMenuItem tsmiColor = new ToolStripMenuItem(name);
+				tsmiColor.Image = UIUtil.CreateColorBitmap24(sw, sh, clr);
+				tsmiColor.Tag = clr;
+				tsmiColor.Click += OnEntrySetColorLabel;
+				m_ctxEntryColorLabel.DropDownItems.Add(tsmiColor);
+			}
+			m_ctxEntryColorLabel.DropDownItems.Add(new ToolStripSeparator());
+			ToolStripMenuItem tsmiClearColor = new ToolStripMenuItem("Sin color");
+			tsmiClearColor.Click += OnEntrySetColorLabel; // Tag = null → elimina etiqueta
+			m_ctxEntryColorLabel.DropDownItems.Add(tsmiClearColor);
+			int idxEditQuick = m_ctxPwList.Items.IndexOf(m_ctxEntryEditQuick);
+			if(idxEditQuick >= 0) m_ctxPwList.Items.Insert(idxEditQuick + 1, m_ctxEntryColorLabel);
+			else m_ctxPwList.Items.Add(m_ctxEntryColorLabel);
+
+			// F3 — Favicon Downloader: "Descargar iconos del sitio web"
+			m_ctxEntryDownloadFavicons = new ToolStripMenuItem(
+				"\uD83C\uDF10 Descargar iconos del sitio web");
+			m_ctxEntryDownloadFavicons.Click += OnEntryDownloadFavicons;
+			m_ctxPwList.Items.Add(new ToolStripSeparator());
+			m_ctxPwList.Items.Add(m_ctxEntryDownloadFavicons);
+
+			// F1 — HIBP Checker: "Comprobar filtraciones (HIBP)..." en el menú Herramientas
+			m_menuToolsHibpCheck = new ToolStripMenuItem(
+				"Comprobar filtraciones (HIBP)...");
+			m_menuToolsHibpCheck.Click += OnToolsHibpCheck;
+			int idxHibpInsert = m_menuTools.DropDownItems.IndexOf(m_menuToolsSep1);
+			if(idxHibpInsert >= 0)
+			{
+				m_menuTools.DropDownItems.Insert(idxHibpInsert, m_menuToolsHibpCheck);
+				m_menuTools.DropDownItems.Insert(idxHibpInsert, new ToolStripSeparator());
+			}
+			else m_menuTools.DropDownItems.Add(m_menuToolsHibpCheck);
+
 			m_sessionLockNotifier.Install(this.OnSessionLock);
 			IpcBroadcast.StartServer();
 
-			HotKeyManager.Initialize(this);
 			HotKeyManager.RegisterHotKey(AppDefs.GlobalHotKeyId.AutoType,
 				(Keys)Program.Config.Integration.HotKeyGlobalAutoType);
 			HotKeyManager.RegisterHotKey(AppDefs.GlobalHotKeyId.AutoTypePassword,
@@ -932,6 +1047,18 @@ namespace KeePass.Forms
 
 			if (!m_bForceExitOnce) // If not executed by 'File' -> 'Exit'
 			{
+				// F16 — CloseToTray: send to tray instead of exiting
+				if(!bSystem &&
+					Program.Config.BackgroundMode.RunInBackground &&
+					Program.Config.BackgroundMode.CloseToTray &&
+					IsAtLeastOneFileOpen())
+				{
+					SaveWindowPositionAndSize();
+					e.Cancel = true;
+					this.Visible = false;
+					return;
+				}
+
 				if (Program.Config.MainWindow.CloseButtonMinimizesWindow && !bSystem)
 				{
 					SaveWindowPositionAndSize();
@@ -955,6 +1082,8 @@ namespace KeePass.Forms
 
 		private void OnFormClosed(object sender, FormClosedEventArgs e)
 		{
+			FontScaleManager.Detach(); // F15-G
+			LiveSearchBox.Detach();    // F15-A — clean up before CleanUpEx
 			CleanUpEx(); // Saves configuration and cleans up all resources
 
 			if (m_bRestart) WinUtil.Restart();
@@ -970,6 +1099,28 @@ namespace KeePass.Forms
 
 			Debug.Assert(e.Node == m_tvGroups.SelectedNode);
 			SelectGroup(e.Node, true);
+
+			// F14 — actualizar breadcrumb
+			PwGroup pgSel = (e.Node != null ? e.Node.Tag as PwGroup : null);
+			if(m_breadcrumbBar != null && pgSel != null)
+				m_breadcrumbBar.UpdateFromGroup(pgSel);
+		}
+
+		// F4 — Alertas de Expiración
+		private void OnFileOpenedExpiryCheck(object sender, FileOpenedEventArgs e)
+		{
+			if(e == null || e.Database == null) return;
+
+			// Arrancar el watcher horario en la primera base de datos abierta
+			if(m_expiryWatcher != null) m_expiryWatcher.Start(this);
+
+			// Mostrar aviso inmediato si hay entradas expiradas o próximas a expirar
+			KeePass.Forms.ExpiryAlertForm.ShowIfNeeded(this, e.Database,
+				delegate(PwEntry pe)
+				{
+					// Navegar a la entrada: la marcamos como seleccionada y abrimos propiedades
+					EnsureVisibleForegroundWindow(true, true);
+				});
 		}
 
 		private void OnGroupsNodeMouseClick(object sender, TreeNodeMouseClickEventArgs e)
@@ -1037,8 +1188,13 @@ namespace KeePass.Forms
 			if (m_lvEntries.SelectedIndices.Count == 0)
 			{
 				m_bUpdateUIStateOnce = true;
+				if(m_entryPreviewPanel != null) m_entryPreviewPanel.LoadEntry(null, null); // F5
 				return;
 			}
+
+			// F5 — actualizar panel de vista previa
+			if(m_entryPreviewPanel != null)
+				m_entryPreviewPanel.LoadEntry(GetSelectedEntry(false), m_docMgr.ActiveDatabase);
 
 			int nCurTicks = Environment.TickCount;
 			int nTimeDiff = unchecked(nCurTicks - m_nLastSelChUpdateUIStateTicks);
@@ -1869,6 +2025,27 @@ namespace KeePass.Forms
 		private void OnCtxPwListOpening(object sender, CancelEventArgs e)
 		{
 			UpdateUIEntryCtxState();
+
+			// F2 — actualizar texto del ítem de favoritos según la entrada seleccionada
+			if(m_menuEntryFavorite != null)
+			{
+				PwEntry peSel = GetSelectedEntry(false);
+				bool bIsFav = FavoritesService.IsFavorite(peSel);
+				m_menuEntryFavorite.Text = bIsFav ? "\u2606 Quitar de favoritos" : "\u2605 Marcar como favorito";
+				m_menuEntryFavorite.Enabled = (peSel != null);
+			}
+
+			// F9 — habilitar "Etiquetar color" solo si hay una entrada seleccionada
+			if(m_ctxEntryColorLabel != null)
+				m_ctxEntryColorLabel.Enabled = (GetSelectedEntry(false) != null);
+
+			// F3 — habilitar descarga de favicons según selección y DB abierta
+			if(m_ctxEntryDownloadFavicons != null)
+			{
+				PwDatabase pdF3 = m_docMgr.ActiveDatabase;
+				m_ctxEntryDownloadFavicons.Enabled =
+					(pdF3 != null) && pdF3.IsOpen && (GetSelectedEntry(false) != null);
+			}
 		}
 
 		private void OnToolsGeneratePasswordList(object sender, EventArgs e)
@@ -2657,6 +2834,18 @@ namespace KeePass.Forms
 			UIUtil.ShowDialogAndDestroy(new OptionsEnfForm());
 		}
 
+		// F1 — HIBP Checker
+		private void OnToolsHibpCheck(object sender, EventArgs e)
+		{
+			PwDatabase pd = m_docMgr.ActiveDatabase;
+			if((pd == null) || !pd.IsOpen)
+			{
+				MessageService.ShowInfo("Por favor, abre una base de datos antes de comprobar las filtraciones.");
+				return;
+			}
+			HibpCheckForm.ShowAndCheck(this, pd);
+		}
+
 		private void OnEntryCompare2(object sender, EventArgs e)
 		{
 			PwDatabase pd = m_docMgr.ActiveDatabase;
@@ -2715,6 +2904,71 @@ namespace KeePass.Forms
 					peM.Strings.ReadSafe(PwDefs.TitleField) + "." + strNL + strNL +
 					KPRes.Entry + " 2:" + strNL + KPRes.SelectedLower + ".";
 			m_menuEntryCompare1.ToolTipText = str;
+		}
+
+		// ── F2: Favoritos ─────────────────────────────────────────────────────────
+
+		private void OnEntryToggleFavorite(object sender, EventArgs e)
+		{
+			PwDatabase pd = m_docMgr.ActiveDatabase;
+			if((pd == null) || !pd.IsOpen) return;
+
+			PwEntry[] vEntries = GetSelectedEntries();
+			if((vEntries == null) || (vEntries.Length == 0)) return;
+
+			foreach(PwEntry pe in vEntries)
+				FavoritesService.Toggle(pe);
+
+			pd.Modified = true;
+			RefreshEntriesList();
+			UpdateUIState(false);
+		}
+
+		// ── F9: Color Labels ──────────────────────────────────────────────────────
+
+		private void OnEntrySetColorLabel(object sender, EventArgs e)
+		{
+			PwDatabase pd = m_docMgr.ActiveDatabase;
+			if((pd == null) || !pd.IsOpen) return;
+
+			PwEntry[] vEntries = GetSelectedEntries();
+			if((vEntries == null) || (vEntries.Length == 0)) return;
+
+			ToolStripMenuItem tsmi = sender as ToolStripMenuItem;
+			Color? color = ((tsmi != null) && (tsmi.Tag is Color))
+				? (Color?)((Color)tsmi.Tag)
+				: null;
+
+			foreach(PwEntry pe in vEntries)
+				ColorLabelService.SetColor(pe, color);
+
+			pd.Modified = true;
+			RefreshEntriesList();
+			UpdateUIState(false);
+		}
+
+		// ── F3: Favicon Downloader ────────────────────────────────────────────────
+
+		private void OnEntryDownloadFavicons(object sender, EventArgs e)
+		{
+			PwDatabase pd = m_docMgr.ActiveDatabase;
+			if((pd == null) || !pd.IsOpen) return;
+
+			PwEntry[] vEntries = GetSelectedEntries();
+			if((vEntries == null) || (vEntries.Length == 0)) return;
+
+			List<FaviconResult> results =
+				FaviconDownloadForm.ShowAndDownload(this, vEntries, pd);
+
+			// Si al menos uno tuvo éxito, actualizar la UI (rebuilds icon lists + entries)
+			bool bAnyOk = false;
+			foreach(FaviconResult r in results) if(r.Success) { bAnyOk = true; break; }
+
+			if(bAnyOk)
+			{
+				pd.Modified = true;
+				UpdateUI(false, null, false, null, true, null, true);
+			}
 		}
 	}
 }

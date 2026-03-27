@@ -954,7 +954,11 @@ namespace KeePass
 
 		private static void LoadTranslation()
 		{
-			Debug.Assert(g_kpTranslation == null);
+			// The Translation property may have been lazily accessed before this
+			// call (e.g. during config deserialization), creating an empty default
+			// KPTranslation object. Reset here so the language file is always
+			// loaded fresh when one is configured.
+			g_kpTranslation = null;
 			if(!g_bEnableTranslation) return;
 
 			string strPath = g_appConfig.Application.GetLanguageFilePath();

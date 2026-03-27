@@ -223,6 +223,66 @@ namespace KeePass.App.Configuration
 			}
 		}
 
+		private AceBackup m_backup = null;
+		public AceBackup Backup
+		{
+			get
+			{
+				if(m_backup == null) m_backup = new AceBackup();
+				return m_backup;
+			}
+			set
+			{
+				if(value == null) throw new ArgumentNullException("value");
+				m_backup = value;
+			}
+		}
+
+		private AceBackgroundMode m_bgMode = null;
+		public AceBackgroundMode BackgroundMode
+		{
+			get
+			{
+				if(m_bgMode == null) m_bgMode = new AceBackgroundMode();
+				return m_bgMode;
+			}
+			set
+			{
+				if(value == null) throw new ArgumentNullException("value");
+				m_bgMode = value;
+			}
+		}
+
+		private AceLayout m_layout = null;
+		public AceLayout Layout
+		{
+			get
+			{
+				if(m_layout == null) m_layout = new AceLayout();
+				return m_layout;
+			}
+			set
+			{
+				if(value == null) throw new ArgumentNullException("value");
+				m_layout = value;
+			}
+		}
+
+		private AceQuickActionsBar m_quickActionsBar = null;
+		public AceQuickActionsBar QuickActionsBar
+		{
+			get
+			{
+				if(m_quickActionsBar == null) m_quickActionsBar = new AceQuickActionsBar();
+				return m_quickActionsBar;
+			}
+			set
+			{
+				if(value == null) throw new ArgumentNullException("value");
+				m_quickActionsBar = value;
+			}
+		}
+
 		private AceCustomConfig m_cc = null;
 		[XmlIgnore]
 		public AceCustomConfig CustomConfig

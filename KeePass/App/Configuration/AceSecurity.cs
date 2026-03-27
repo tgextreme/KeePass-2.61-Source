@@ -130,6 +130,15 @@ namespace KeePass.App.Configuration
 			set { m_bClipNoPersist = value; }
 		}
 
+		// F4 — Alertas de Expiración
+		private int m_nExpiryWarningDays = 14;
+		[DefaultValue(14)]
+		public int ExpiryWarningDays
+		{
+			get { return m_nExpiryWarningDays; }
+			set { m_nExpiryWarningDays = value; }
+		}
+
 		// The clipboard tools of old Office versions crash when
 		// storing the 'Clipboard Viewer Ignore' format using the
 		// OleSetClipboard function.

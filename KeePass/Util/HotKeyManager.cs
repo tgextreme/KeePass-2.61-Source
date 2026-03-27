@@ -74,6 +74,7 @@ namespace KeePass.Util
 
 			uint vkCode = (uint)(kKey & Keys.KeyCode);
 			if(vkCode == (uint)Keys.None) return false; // Don't register mod keys only
+			if(g_fRecvWnd == null) { Debug.Assert(false); return false; }
 
 			try
 			{
@@ -104,6 +105,8 @@ namespace KeePass.Util
 			{
 				// Keys k = g_dRegKeys[nId];
 				g_dRegKeys.Remove(nId);
+
+				if(g_fRecvWnd == null) { Debug.Assert(false); return false; }
 
 				try
 				{

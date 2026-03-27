@@ -74,6 +74,8 @@ namespace KeePass.App
 			public static readonly int AutoTypeSelected = 196;
 			public static readonly int ShowWindow = 226;
 			public static readonly int EntryMenu = 227;
+			public static readonly int MiniSearch = 228; // F16 — Mini search popup
+			public static readonly int ShortcutOverlay = 229; // F14 — Overlay de atajos de teclado
 
 			internal const int TempRegTest = 225;
 		}
