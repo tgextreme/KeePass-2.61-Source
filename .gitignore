@@ -1,0 +1,45 @@
+# Salidas de compilación
+Build/KeePass/Debug/
+Build/KeePass/Release/
+Build/KeePassLib/
+Build/KeePassLib_Distrib/
+
+# Carpetas obj intermedias
+**/obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+UpgradeLog*.htm
+
+# Backups locales de la sesión
+Backup/
+Backup1/
+Backup2/
+Backup3/
+
+# Archivos temporales / notas locales
+f16_content.txt
+instrucciones.md
+
+# Configuración local de KeePass (contiene rutas absolutas del equipo)
+Build/KeePass/Debug/KeePass.config.xml
+Build/KeePass/Release/KeePass.config.xml
+
+# Archivos de caché de NuGet / paquetes
+packages/
+*.nupkg
+
+# Binarios generados
+*.exe
+*.dll
+*.pdb
+*.cache
+*.log
+
+# Excepciones: binarios que forman parte del repo intencionalmente
+!Ext/**/*.exe
+!Ext/**/*.dll
