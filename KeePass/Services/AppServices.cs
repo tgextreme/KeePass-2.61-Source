@@ -4,11 +4,13 @@
   Punto único de acceso a todos los servicios de la capa Application.
   Los servicios estáticos (HibpService, BackupService, etc.) son clases estáticas
   y no necesitan instancia; se exponen aquí para mantener un API consistente.
-  BrowserImportService es el único no-estático y se crea en Initialize().
+  BrowserImportService y los servicios de arquitectura base son instancias
+  creadas en Initialize().
 
   Uso:
       AppServices.Initialize();          // al arrancar / al abrir DB
       AppServices.BrowserImport.Import(…)
+      AppServices.Search.Search(db, q)
       AppServices.Shutdown();            // al cerrar DB o la app
 */
 
@@ -23,10 +25,30 @@ namespace KeePass.Services
 	/// </summary>
 	public static class AppServices
 	{
-		// ── Servicio no-estático ──────────────────────────────────────────────────
+		// ── Servicios F13 ─────────────────────────────────────────────────────────
 
 		/// <summary>Servicio de importación desde navegadores (F13).</summary>
 		public static IBrowserImportService BrowserImport { get; private set; }
+
+		// ── Servicios de arquitectura base ────────────────────────────────────────
+
+		/// <summary>Acceso uniforme a los campos de una entrada (título, usuario, contraseña…).</summary>
+		public static ICredentialService Credentials { get; private set; }
+
+		/// <summary>Búsqueda de entradas por texto y dominio.</summary>
+		public static ISearchService Search { get; private set; }
+
+		/// <summary>Copia segura al portapapeles con auto-borrado.</summary>
+		public static IClipboardService Clipboard { get; private set; }
+
+		/// <summary>Anti-captura de pantalla y modo streamer.</summary>
+		public static ISecurityService Security { get; private set; }
+
+		/// <summary>Análisis de contraseñas débiles y duplicadas.</summary>
+		public static IPasswordAnalysisService Analysis { get; private set; }
+
+		/// <summary>Métricas de seguridad globales de la base de datos.</summary>
+		public static IDashboardService Dashboard { get; private set; }
 
 		// ── Estado ────────────────────────────────────────────────────────────────
 
@@ -37,13 +59,19 @@ namespace KeePass.Services
 
 		/// <summary>
 		/// Inicializa todos los servicios.
-		/// Puede llamarse varias veces (al abrir otra DB); los servicios estáticos
-		/// son idempotentes, sólo se recrea BrowserImportService.
+		/// Puede llamarse varias veces (al abrir otra DB); los servicios son
+		/// idempotentes y se recrean en cada llamada.
 		/// </summary>
 		/// <param name="db">Base de datos activa (puede ser null si no hay ninguna abierta).</param>
 		public static void Initialize(PwDatabase db = null)
 		{
 			BrowserImport = new BrowserImportService();
+			Credentials   = new CredentialService();
+			Search        = new SearchService();
+			Clipboard     = new ClipboardService();
+			Security      = new SecurityService();
+			Analysis      = new PasswordAnalysisService();
+			Dashboard     = new DashboardService(Analysis);
 			IsInitialized = true;
 		}
 
@@ -53,8 +81,17 @@ namespace KeePass.Services
 		/// </summary>
 		public static void Shutdown()
 		{
-			BrowserImport  = null;
-			IsInitialized  = false;
+			// Liberar servicios que implementan IDisposable
+			if(Clipboard is System.IDisposable cd) cd.Dispose();
+
+			BrowserImport = null;
+			Credentials   = null;
+			Search        = null;
+			Clipboard     = null;
+			Security      = null;
+			Analysis      = null;
+			Dashboard     = null;
+			IsInitialized = false;
 		}
 	}
 }

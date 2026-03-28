@@ -1352,6 +1352,37 @@
     </Compile>
     <Compile Include="Integration\WindowsHello\IWindowsHelloService.cs" />
     <Compile Include="Integration\WindowsHello\WindowsHelloService.cs" />
+    <!-- Infrastructure / Security -->
+    <Compile Include="Infrastructure\Security\HibpClient.cs" />
+    <Compile Include="Infrastructure\Security\NativeSecurityHelper.cs" />
+    <Compile Include="Infrastructure\Security\AutoLockManager.cs" />
+    <Compile Include="Infrastructure\Security\ClipboardGuard.cs" />
+    <!-- Services — arquitectura base -->
+    <Compile Include="Services\ICredentialService.cs" />
+    <Compile Include="Services\CredentialService.cs" />
+    <Compile Include="Services\ISearchService.cs" />
+    <Compile Include="Services\SearchService.cs" />
+    <Compile Include="Services\IClipboardService.cs" />
+    <Compile Include="Services\ClipboardService.cs" />
+    <Compile Include="Services\ISecurityService.cs" />
+    <Compile Include="Services\SecurityService.cs" />
+    <Compile Include="Services\IPasswordAnalysisService.cs" />
+    <Compile Include="Services\PasswordAnalysisService.cs" />
+    <Compile Include="Services\IDashboardService.cs" />
+    <Compile Include="Services\DashboardService.cs" />
+    <!-- UI -->
+    <Compile Include="UI\ThemeManager.cs" />
+    <Compile Include="UI\ColoredRowRenderer.cs" />
+    <!-- Forms -->
+    <Compile Include="Forms\QuickUnlockForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\CommandPaletteForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Forms\SecurityDashboardForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\Nuvola\B16x16_1DownArrow.png" />
