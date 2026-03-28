@@ -37,6 +37,54 @@ namespace KeePass.Tests.Services
         }
 
         [TestMethod]
+        public void Initialize_CreatesCredentialsService()
+        {
+            AppServices.Initialize();
+
+            Assert.IsNotNull(AppServices.Credentials);
+        }
+
+        [TestMethod]
+        public void Initialize_CreatesSearchService()
+        {
+            AppServices.Initialize();
+
+            Assert.IsNotNull(AppServices.Search);
+        }
+
+        [TestMethod]
+        public void Initialize_CreatesClipboardService()
+        {
+            AppServices.Initialize();
+
+            Assert.IsNotNull(AppServices.Clipboard);
+        }
+
+        [TestMethod]
+        public void Initialize_CreatesSecurityService()
+        {
+            AppServices.Initialize();
+
+            Assert.IsNotNull(AppServices.Security);
+        }
+
+        [TestMethod]
+        public void Initialize_CreatesAnalysisService()
+        {
+            AppServices.Initialize();
+
+            Assert.IsNotNull(AppServices.Analysis);
+        }
+
+        [TestMethod]
+        public void Initialize_CreatesDashboardService()
+        {
+            AppServices.Initialize();
+
+            Assert.IsNotNull(AppServices.Dashboard);
+        }
+
+        [TestMethod]
         public void Shutdown_ClearsState()
         {
             AppServices.Initialize();
@@ -44,6 +92,12 @@ namespace KeePass.Tests.Services
 
             Assert.IsFalse(AppServices.IsInitialized);
             Assert.IsNull(AppServices.BrowserImport);
+            Assert.IsNull(AppServices.Credentials);
+            Assert.IsNull(AppServices.Search);
+            Assert.IsNull(AppServices.Clipboard);
+            Assert.IsNull(AppServices.Security);
+            Assert.IsNull(AppServices.Analysis);
+            Assert.IsNull(AppServices.Dashboard);
         }
 
         [TestMethod]

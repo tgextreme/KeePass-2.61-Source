@@ -15,12 +15,14 @@
     <PackageReference Include="MSTest.TestFramework"   Version="3.2.2" />
   </ItemGroup>
 
-  <!-- Reference the KeePass executable as an assembly (contains KeePassLib sources too) -->
+  <!-- ProjectReference: VS Code usa análisis de código fuente (no abre el binario).
+       Sin AdditionalProperties: KeePass compila a su ruta por defecto.
+       La compilación de tests se hace vía solution file para que MSBuild
+       gestione la referencia internamente en un solo proceso. -->
   <ItemGroup>
-    <Reference Include="KeePass">
-      <HintPath>..\KeePass\obj\Debug\KeePass.exe</HintPath>
-      <Private>true</Private>
-    </Reference>
+    <ProjectReference Include="..\KeePass\KeePass_N48.csproj" />
+    <Reference Include="System.Drawing" />
+    <Reference Include="System.Windows.Forms" />
   </ItemGroup>
 
 </Project>

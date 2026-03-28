@@ -40,12 +40,7 @@ namespace KeePass.Tests.Services
         private static BrowserCredential MakeCred(string url, string user,
             string password = "pass")
         {
-            return new BrowserCredential
-            {
-                Url      = url,
-                Username = user,
-                Password = password,
-            };
+            return new BrowserCredential(url, url, user, password, string.Empty);
         }
 
         // ── GetAvailableProfiles ──────────────────────────────────────
@@ -69,8 +64,8 @@ namespace KeePass.Tests.Services
             foreach(BrowserProfile p in profiles)
             {
                 Assert.IsNotNull(p, "Profile should not be null");
-                Assert.IsFalse(string.IsNullOrEmpty(p.BrowserName),
-                    "BrowserName should not be empty");
+                Assert.IsFalse(string.IsNullOrEmpty(p.DisplayName),
+                    "DisplayName should not be empty");
             }
         }
 

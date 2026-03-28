@@ -32,7 +32,7 @@ namespace KeePass.Infrastructure
 	/// listas (-/*), separadores (---), tachado (~~), enlaces ([text](url)).
 	/// Sin dependencias externas — solo BCL.
 	/// </summary>
-	internal static class MarkdownRenderer
+	public static class MarkdownRenderer
 	{
 		/// <summary>Convierte texto Markdown a un fragmento HTML.</summary>
 		public static string ToHtml(string markdown)

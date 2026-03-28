@@ -25,6 +25,13 @@
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
     <OutputPath>..\Build\KeePass\Debug\</OutputPath>
+    <!-- IntermediateOutputPath = OutputPath: eliminar el paso de copia CopyFilesToOutputDirectory
+         que falla cuando VS Code o VS tienen obj\Debug\KeePass.exe abierto durante la compilación. -->
+    <IntermediateOutputPath>..\Build\KeePass\Debug\</IntermediateOutputPath>
+    <!-- OutputType=Library para Debug: Kaspersky quarantine los EXE recién compilados.
+         Un DLL no es considerado ejecutable independiente, Kaspersky no lo quarantine.
+         Release sigue siendo WinExe. -->
+    <OutputType>Library</OutputType>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
@@ -1611,7 +1618,8 @@
   <Target Name="AfterBuild">
   </Target>
   -->
-  <PropertyGroup>
+  <!-- sgen PostBuildEvent solo para Release (en Debug causa conflictos con el watcher del IDE) -->
+  <PropertyGroup Condition=" '$(Configuration)' != 'Debug' ">
     <PostBuildEvent>"$(SDK40ToolsPath)sgen.exe" /assembly:"$(TargetPath)" /force /nologo</PostBuildEvent>
   </PropertyGroup>
 </Project>

@@ -1,4 +1,14 @@
 {
     "dotnet.preferCSharpExtension": true,
-    "dotnet.defaultSolution": "KeePass_N48.sln"
+    "dotnet.defaultSolution": "KeePass_N48.sln",
+    "files.watcherExclude": {
+        "**/obj/**": true,
+        "**/Build/**": true,
+        "**/bin/**": true
+    },
+    "dotnet.backgroundAnalysis.analyzerDiagnosticsScope": "none",
+    "omnisharp.disableMSBuildDiagnostics": true,
+    "csharp.suppressDotnetRestoreNotification": true,
+    "csharp.maxProjectFileCountForDiagnosticAnalysis": 1,
+    "omnisharp.enableRoslynAnalyzers": false
 }

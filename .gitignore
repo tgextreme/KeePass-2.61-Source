@@ -4,8 +4,9 @@ Build/KeePass/Release/
 Build/KeePassLib/
 Build/KeePassLib_Distrib/
 
-# Carpetas obj intermedias
+# Carpetas obj e intermedias de build
 **/obj/
+**/bin/
 
 # Visual Studio
 .vs/

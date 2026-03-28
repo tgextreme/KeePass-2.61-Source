@@ -52,12 +52,12 @@ namespace KeePass.Tests.Infrastructure
         // ── negrita / cursiva ─────────────────────────────────────────
 
         [TestMethod]
-        public void ToHtml_Bold_ProducesBTag()
+        public void ToHtml_Bold_ProducesStrongTag()
         {
             string result = MarkdownRenderer.ToHtml("**negrita**");
-            StringAssert.Contains(result, "<b>");
+            StringAssert.Contains(result, "<strong>");
             StringAssert.Contains(result, "negrita");
-            StringAssert.Contains(result, "</b>");
+            StringAssert.Contains(result, "</strong>");
         }
 
         [TestMethod]
@@ -163,7 +163,7 @@ namespace KeePass.Tests.Infrastructure
             string result = MarkdownRenderer.ToHtml(md);
 
             StringAssert.Contains(result, "<h1>");
-            StringAssert.Contains(result, "<b>");
+            StringAssert.Contains(result, "<strong>");
             StringAssert.Contains(result, "<ul>");
             StringAssert.Contains(result, "<a ");
         }
