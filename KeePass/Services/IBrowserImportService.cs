@@ -8,7 +8,7 @@
   (at your option) any later version.
 */
 
-// F13 — Importar desde navegadores — interfaz del servicio.
+// F13 — Importar desde CSV de navegador — interfaz del servicio.
 
 using System.Collections.Generic;
 
@@ -17,6 +17,36 @@ using KeePassLib;
 
 namespace KeePass.Services
 {
+	/// <summary>Formato CSV de origen exportado por navegador.</summary>
+	public enum BrowserCsvFormat
+	{
+		Chrome,
+		Edge,
+		Brave,
+		Firefox,
+		Generico
+	}
+
+	/// <summary>Metadatos de un formato CSV soportado.</summary>
+	public sealed class BrowserCsvFormatInfo
+	{
+		public BrowserCsvFormat Format { get; private set; }
+		public string DisplayName { get; private set; }
+		public string HeaderHint { get; private set; }
+		public string ExportHint { get; private set; }
+
+		public BrowserCsvFormatInfo(BrowserCsvFormat format, string displayName,
+			string headerHint, string exportHint)
+		{
+			Format = format;
+			DisplayName = displayName ?? string.Empty;
+			HeaderHint = headerHint ?? string.Empty;
+			ExportHint = exportHint ?? string.Empty;
+		}
+
+		public override string ToString() { return DisplayName; }
+	}
+
 	/// <summary>Resultado de una operación de importación.</summary>
 	public sealed class BrowserImportResult
 	{
@@ -32,18 +62,19 @@ namespace KeePass.Services
 	}
 
 	/// <summary>
-	/// Contrato del servicio de importación desde navegadores.
+	/// Contrato del servicio de importación desde CSV de navegadores.
 	/// </summary>
 	public interface IBrowserImportService
 	{
-		/// <summary>Devuelve todos los perfiles detectados de Chrome, Edge, Brave y Firefox.</summary>
-		List<BrowserProfile> GetAvailableProfiles();
+		/// <summary>Devuelve los formatos CSV soportados por el asistente.</summary>
+		List<BrowserCsvFormatInfo> GetSupportedFormats();
 
 		/// <summary>
-		/// Lee las credenciales de <paramref name="profile"/> sin importarlas.
+		/// Lee las credenciales de un archivo CSV sin importarlas.
 		/// Permite la vista previa en el wizard.
 		/// </summary>
-		List<BrowserCredential> PreviewCredentials(BrowserProfile profile);
+		List<BrowserCredential> PreviewCredentialsFromCsv(string csvPath,
+			BrowserCsvFormat format);
 
 		/// <summary>
 		/// Detecta qué credenciales de la lista ya existen en <paramref name="db"/>.

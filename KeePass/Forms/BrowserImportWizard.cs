@@ -8,17 +8,12 @@
   (at your option) any later version.
 */
 
-// F13 — Importar desde Chrome / Firefox — Wizard de 3 pasos.
-//
-//  Paso 1 — Seleccionar navegador/perfil
-//  Paso 2 — Previsualizar credenciales detectadas (con marcado de duplicados)
-//  Paso 3 — Seleccionar grupo destino + confirmar importación
-//
-// Construido completamente por código (sin .Designer.cs).
+// F13 — Importar desde CSV de navegador — wizard de 3 pasos.
 
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Windows.Forms;
 
 using KeePass.Integration.BrowserImport;
@@ -28,49 +23,43 @@ using KeePassLib;
 
 namespace KeePass.Forms
 {
-	/// <summary>
-	/// Asistente de importación de contraseñas desde browsers web.
-	/// </summary>
 	public sealed class BrowserImportWizard : Form
 	{
-		// ── dependencias ──────────────────────────────────────────────────────────
-		private readonly PwDatabase          m_db;
+		private readonly PwDatabase m_db;
 		private readonly IBrowserImportService m_service;
 
-		// ── estado ────────────────────────────────────────────────────────────────
-		private List<BrowserProfile>    m_profiles;
 		private List<BrowserCredential> m_preview;
 		private List<BrowserCredential> m_duplicates;
-		private BrowserImportResult     m_result;
+		private BrowserImportResult m_result;
+		private List<BrowserCsvFormatInfo> m_formats;
 
-		// ── controles del wizard ──────────────────────────────────────────────────
-		private Panel      m_pnlHeader;
-		private Label      m_lblTitle;
-		private Label      m_lblSubtitle;
+		private Panel m_pnlHeader;
+		private Label m_lblTitle;
+		private Label m_lblSubtitle;
 		private TabControl m_tabs;
 
 		// Paso 1
-		private ListBox  m_lstProfiles;
-		private Label    m_lblNoProfiles;
+		private ComboBox m_cmbFormat;
+		private TextBox m_tbCsvPath;
+		private Button m_btnBrowseCsv;
+		private Label m_lblHeaderHint;
+		private Label m_lblExportHint;
 
 		// Paso 2
 		private DataGridView m_grid;
-		private Label        m_lblDupBadge;
+		private Label m_lblDupBadge;
+		private Button m_btnSelectAll;
+		private Button m_btnSelectNone;
+		private Button m_btnExcludeDup;
 
 		// Paso 3
 		private TreeView m_tvGroups;
-		private Label    m_lblResult;
+		private Label m_lblResult;
 
-		// Botones de navegación
 		private Button m_btnBack;
 		private Button m_btnNext;
 		private Button m_btnCancel;
 
-		// ── punto de entrada estático ─────────────────────────────────────────────
-
-		/// <summary>
-		/// Muestra el wizard de importación y espera a que el usuario lo cierre.
-		/// </summary>
 		public static void ShowWizard(IWin32Window owner, PwDatabase db)
 		{
 			if(db == null) throw new ArgumentNullException("db");
@@ -78,92 +67,88 @@ namespace KeePass.Forms
 				w.ShowDialog(owner);
 		}
 
-		// ── constructor ───────────────────────────────────────────────────────────
-
 		private BrowserImportWizard(PwDatabase db)
 		{
-			m_db      = db;
+			m_db = db;
 			m_service = new BrowserImportService();
 			BuildUi();
 		}
 
-		// ── construcción de la UI ─────────────────────────────────────────────────
-
 		private void BuildUi()
 		{
-			this.Text            = "Importar contraseñas desde navegador";
-			this.FormBorderStyle = FormBorderStyle.FixedDialog;
-			this.MaximizeBox     = false;
-			this.MinimizeBox     = false;
-			this.StartPosition   = FormStartPosition.CenterParent;
-			this.ClientSize      = new Size(620, 500);
+			Text = "Importar desde CSV de navegador";
+			FormBorderStyle = FormBorderStyle.FixedDialog;
+			MaximizeBox = false;
+			MinimizeBox = false;
+			StartPosition = FormStartPosition.CenterParent;
+			ClientSize = new Size(700, 540);
 
-			// — Cabecera —
 			m_pnlHeader = new Panel
 			{
-				Dock      = DockStyle.Top,
-				Height    = 64,
+				Dock = DockStyle.Top,
+				Height = 70,
 				BackColor = Color.FromArgb(0x1E, 0x1E, 0x2E)
 			};
 			m_lblTitle = new Label
 			{
-				Text      = "Importar desde navegador",
+				Text = "Importar contraseñas (CSV)",
 				ForeColor = Color.White,
-				Font      = new Font(this.Font.FontFamily, 12f, FontStyle.Bold),
-				AutoSize  = false,
-				Bounds    = new Rectangle(16, 8, 500, 24)
+				Font = new Font(Font.FontFamily, 12f, FontStyle.Bold),
+				AutoSize = false,
+				Bounds = new Rectangle(16, 9, 620, 24)
 			};
 			m_lblSubtitle = new Label
 			{
-				Text      = "Paso 1 de 3 — Seleccionar perfil",
+				Text = "Paso 1 de 3 - Seleccionar archivo CSV",
 				ForeColor = Color.FromArgb(180, 180, 200),
-				AutoSize  = false,
-				Bounds    = new Rectangle(16, 34, 500, 20)
+				AutoSize = false,
+				Bounds = new Rectangle(16, 36, 620, 20)
 			};
 			m_pnlHeader.Controls.AddRange(new Control[] { m_lblTitle, m_lblSubtitle });
 
-			// — TabControl (ocultar tabs para simular wizard) —
 			m_tabs = new TabControl
 			{
 				Appearance = TabAppearance.FlatButtons,
-				ItemSize   = new Size(0, 1),
-				SizeMode   = TabSizeMode.Fixed,
-				Bounds     = new Rectangle(0, 64, 620, 388)
+				ItemSize = new Size(0, 1),
+				SizeMode = TabSizeMode.Fixed,
+				Bounds = new Rectangle(0, 70, 700, 415)
 			};
-
 			m_tabs.TabPages.Add(BuildStep1());
 			m_tabs.TabPages.Add(BuildStep2());
 			m_tabs.TabPages.Add(BuildStep3());
 
-			// — Botones de navegación —
 			m_btnBack = new Button
 			{
-				Text    = "< Atrás",
+				Text = "< Atrás",
 				Enabled = false,
-				Bounds  = new Rectangle(10, 460, 90, 28)
+				Bounds = new Rectangle(10, 500, 90, 28)
 			};
 			m_btnNext = new Button
 			{
-				Text   = "Siguiente >",
-				Bounds = new Rectangle(106, 460, 110, 28)
+				Text = "Siguiente >",
+				Bounds = new Rectangle(106, 500, 110, 28)
 			};
 			m_btnCancel = new Button
 			{
-				Text         = "Cancelar",
+				Text = "Cancelar",
 				DialogResult = DialogResult.Cancel,
-				Bounds       = new Rectangle(518, 460, 90, 28)
+				Bounds = new Rectangle(598, 500, 90, 28)
 			};
-			this.CancelButton = m_btnCancel;
+			CancelButton = m_btnCancel;
 
-			m_btnBack.Click   += OnBack;
-			m_btnNext.Click   += OnNext;
+			m_btnBack.Click += OnBack;
+			m_btnNext.Click += OnNext;
 
-			this.Controls.AddRange(new Control[] {
-				m_pnlHeader, m_tabs,
-				m_btnBack, m_btnNext, m_btnCancel
+			Controls.AddRange(new Control[]
+			{
+				m_pnlHeader,
+				m_tabs,
+				m_btnBack,
+				m_btnNext,
+				m_btnCancel
 			});
 
-			this.Load += OnLoad;
+			Load += OnLoad;
 		}
 
 		private TabPage BuildStep1()
@@ -172,29 +157,73 @@ namespace KeePass.Forms
 
 			var lblInfo = new Label
 			{
-				Text     = "Se han detectado los siguientes perfiles de navegador. "
-				         + "Selecciona el perfil del que quieres importar contraseñas:",
+				Text = "1) Exporta contraseñas desde tu navegador a CSV. 2) Selecciona formato y archivo.",
 				AutoSize = false,
-				Bounds   = new Rectangle(12, 12, 590, 36)
+				Bounds = new Rectangle(12, 12, 670, 20)
 			};
 
-			m_lstProfiles = new ListBox
+			var lblFormat = new Label
 			{
-				Bounds         = new Rectangle(12, 52, 590, 300),
-				IntegralHeight = false
+				Text = "Formato del CSV:",
+				AutoSize = true,
+				Bounds = new Rectangle(12, 46, 140, 18)
 			};
-
-			m_lblNoProfiles = new Label
+			m_cmbFormat = new ComboBox
 			{
-				Text      = "No se encontró ningún perfil de Chrome, Edge, Brave o Firefox.",
-				ForeColor = Color.Gray,
-				AutoSize  = false,
-				TextAlign = ContentAlignment.MiddleCenter,
-				Bounds    = new Rectangle(12, 180, 590, 40),
-				Visible   = false
+				DropDownStyle = ComboBoxStyle.DropDownList,
+				Bounds = new Rectangle(12, 68, 360, 25)
+			};
+			m_cmbFormat.SelectedIndexChanged += OnFormatChanged;
+
+			var lblPath = new Label
+			{
+				Text = "Archivo CSV:",
+				AutoSize = true,
+				Bounds = new Rectangle(12, 108, 120, 18)
+			};
+			m_tbCsvPath = new TextBox
+			{
+				Bounds = new Rectangle(12, 130, 560, 25)
+			};
+			m_tbCsvPath.TextChanged += delegate { UpdateStep1State(); };
+
+			m_btnBrowseCsv = new Button
+			{
+				Text = "Examinar...",
+				Bounds = new Rectangle(580, 129, 100, 27)
+			};
+			m_btnBrowseCsv.Click += OnBrowseCsv;
+
+			m_lblHeaderHint = new Label
+			{
+				Text = string.Empty,
+				ForeColor = Color.FromArgb(30, 30, 30),
+				AutoSize = false,
+				Bounds = new Rectangle(12, 172, 670, 32)
 			};
 
-			page.Controls.AddRange(new Control[] { lblInfo, m_lstProfiles, m_lblNoProfiles });
+			m_lblExportHint = new Label
+			{
+				Text = string.Empty,
+				ForeColor = Color.DimGray,
+				AutoSize = false,
+				Bounds = new Rectangle(12, 210, 670, 46)
+			};
+
+			var lblTip = new Label
+			{
+				Text = "Tip: si no sabes el formato exacto, prueba primero con 'CSV genérico'.",
+				ForeColor = Color.SteelBlue,
+				AutoSize = false,
+				Bounds = new Rectangle(12, 266, 670, 22)
+			};
+
+			page.Controls.AddRange(new Control[]
+			{
+				lblInfo, lblFormat, m_cmbFormat, lblPath, m_tbCsvPath, m_btnBrowseCsv,
+				m_lblHeaderHint, m_lblExportHint, lblTip
+			});
+
 			return page;
 		}
 
@@ -204,51 +233,74 @@ namespace KeePass.Forms
 
 			var lblInfo = new Label
 			{
-				Text     = "Credenciales detectadas. Desmarca las que NO quieras importar:",
+				Text = "Previsualización: desmarca lo que NO quieras importar.",
 				AutoSize = false,
-				Bounds   = new Rectangle(12, 12, 500, 20)
+				Bounds = new Rectangle(12, 12, 500, 20)
 			};
 
 			m_lblDupBadge = new Label
 			{
-				Text      = string.Empty,
+				Text = string.Empty,
 				ForeColor = Color.OrangeRed,
-				AutoSize  = false,
-				Bounds    = new Rectangle(12, 36, 590, 20)
+				AutoSize = false,
+				Bounds = new Rectangle(12, 36, 660, 20)
 			};
+
+			m_btnSelectAll = new Button
+			{
+				Text = "Marcar todo",
+				Bounds = new Rectangle(12, 60, 90, 25)
+			};
+			m_btnSelectAll.Click += delegate { SetAllImportChecks(true); };
+
+			m_btnSelectNone = new Button
+			{
+				Text = "Desmarcar todo",
+				Bounds = new Rectangle(108, 60, 105, 25)
+			};
+			m_btnSelectNone.Click += delegate { SetAllImportChecks(false); };
+
+			m_btnExcludeDup = new Button
+			{
+				Text = "Quitar duplicados",
+				Bounds = new Rectangle(219, 60, 115, 25)
+			};
+			m_btnExcludeDup.Click += OnExcludeDuplicates;
 
 			m_grid = new DataGridView
 			{
-				Bounds                  = new Rectangle(12, 60, 590, 290),
-				AutoSizeColumnsMode     = DataGridViewAutoSizeColumnsMode.Fill,
-				RowHeadersVisible       = false,
-				AllowUserToAddRows      = false,
-				AllowUserToDeleteRows   = false,
-				SelectionMode           = DataGridViewSelectionMode.FullRowSelect,
-				ReadOnly                = false,
-				AllowUserToResizeRows   = false
+				Bounds = new Rectangle(12, 92, 670, 290),
+				AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+				RowHeadersVisible = false,
+				AllowUserToAddRows = false,
+				AllowUserToDeleteRows = false,
+				SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+				ReadOnly = false,
+				AllowUserToResizeRows = false
 			};
 
-			// Columna checkbox "Importar"
 			var colImport = new DataGridViewCheckBoxColumn
 			{
 				HeaderText = "✓",
-				Width      = 32,
+				Width = 34,
 				AutoSizeMode = DataGridViewAutoSizeColumnMode.None
 			};
-			var colTitle = new DataGridViewTextBoxColumn
-			{ HeaderText = "Título",   ReadOnly = true };
-			var colUser  = new DataGridViewTextBoxColumn
-			{ HeaderText = "Usuario",  ReadOnly = true };
-			var colUrl   = new DataGridViewTextBoxColumn
-			{ HeaderText = "URL",      ReadOnly = true };
-			var colDup   = new DataGridViewTextBoxColumn
-			{ HeaderText = "Duplicado", ReadOnly = true, Width = 80,
-			  AutoSizeMode = DataGridViewAutoSizeColumnMode.None };
-
+			var colTitle = new DataGridViewTextBoxColumn { HeaderText = "Título", ReadOnly = true };
+			var colUser = new DataGridViewTextBoxColumn { HeaderText = "Usuario", ReadOnly = true };
+			var colUrl = new DataGridViewTextBoxColumn { HeaderText = "URL", ReadOnly = true };
+			var colDup = new DataGridViewTextBoxColumn
+			{
+				HeaderText = "Duplicado",
+				ReadOnly = true,
+				Width = 86,
+				AutoSizeMode = DataGridViewAutoSizeColumnMode.None
+			};
 			m_grid.Columns.AddRange(colImport, colTitle, colUser, colUrl, colDup);
 
-			page.Controls.AddRange(new Control[] { lblInfo, m_lblDupBadge, m_grid });
+			page.Controls.AddRange(new Control[]
+			{
+				lblInfo, m_lblDupBadge, m_btnSelectAll, m_btnSelectNone, m_btnExcludeDup, m_grid
+			});
 			return page;
 		}
 
@@ -258,22 +310,22 @@ namespace KeePass.Forms
 
 			var lblInfo = new Label
 			{
-				Text     = "Selecciona el grupo de destino donde se añadirán las entradas:",
+				Text = "Selecciona el grupo de destino donde se añadirán las entradas:",
 				AutoSize = false,
-				Bounds   = new Rectangle(12, 12, 590, 20)
+				Bounds = new Rectangle(12, 12, 670, 20)
 			};
 
 			m_tvGroups = new TreeView
 			{
-				Bounds       = new Rectangle(12, 36, 590, 280),
+				Bounds = new Rectangle(12, 36, 670, 300),
 				HideSelection = false
 			};
 
 			m_lblResult = new Label
 			{
-				Text      = string.Empty,
-				AutoSize  = false,
-				Bounds    = new Rectangle(12, 322, 590, 40),
+				Text = string.Empty,
+				AutoSize = false,
+				Bounds = new Rectangle(12, 344, 670, 40),
 				ForeColor = Color.DarkGreen,
 				TextAlign = ContentAlignment.MiddleCenter
 			};
@@ -282,25 +334,45 @@ namespace KeePass.Forms
 			return page;
 		}
 
-		// ── eventos ───────────────────────────────────────────────────────────────
-
 		private void OnLoad(object sender, EventArgs e)
 		{
-			// Cargar perfiles en el paso 1.
-			try { m_profiles = m_service.GetAvailableProfiles(); }
-			catch { m_profiles = new List<BrowserProfile>(); }
+			try { m_formats = m_service.GetSupportedFormats(); }
+			catch { m_formats = new List<BrowserCsvFormatInfo>(); }
 
-			m_lstProfiles.Items.Clear();
-			if(m_profiles.Count == 0)
+			m_cmbFormat.Items.Clear();
+			for(int i = 0; i < m_formats.Count; ++i)
+				m_cmbFormat.Items.Add(m_formats[i]);
+
+			if(m_cmbFormat.Items.Count > 0)
+				m_cmbFormat.SelectedIndex = 0;
+
+			UpdateStep1State();
+		}
+
+		private void OnFormatChanged(object sender, EventArgs e)
+		{
+			BrowserCsvFormatInfo fi = GetSelectedFormatInfo();
+			if(fi == null)
 			{
-				m_lstProfiles.Visible    = false;
-				m_lblNoProfiles.Visible  = true;
-				m_btnNext.Enabled        = false;
+				m_lblHeaderHint.Text = string.Empty;
+				m_lblExportHint.Text = string.Empty;
+				return;
 			}
-			else
+
+			m_lblHeaderHint.Text = "Cabecera esperada: " + fi.HeaderHint;
+			m_lblExportHint.Text = "Cómo exportar: " + fi.ExportHint;
+			UpdateStep1State();
+		}
+
+		private void OnBrowseCsv(object sender, EventArgs e)
+		{
+			using(OpenFileDialog ofd = new OpenFileDialog())
 			{
-				foreach(BrowserProfile p in m_profiles) m_lstProfiles.Items.Add(p);
-				if(m_lstProfiles.Items.Count > 0) m_lstProfiles.SelectedIndex = 0;
+				ofd.Filter = "CSV (*.csv)|*.csv|Todos los archivos (*.*)|*.*";
+				ofd.Title = "Seleccionar archivo CSV exportado";
+				ofd.CheckFileExists = true;
+				if(ofd.ShowDialog(this) == DialogResult.OK)
+					m_tbCsvPath.Text = ofd.FileName;
 			}
 		}
 
@@ -308,21 +380,22 @@ namespace KeePass.Forms
 		{
 			int current = m_tabs.SelectedIndex;
 
-			if(current == 0) // Paso 1 → 2
+			if(current == 0)
 			{
-				if(m_lstProfiles.SelectedItem == null) return;
-				BrowserProfile selected = (BrowserProfile)m_lstProfiles.SelectedItem;
-				PopulateStep2(selected);
-				GoToStep(1, "Paso 2 de 3 — Previsualizar credenciales");
+				if(!ValidateStep1()) return;
+
+				BrowserCsvFormatInfo fi = GetSelectedFormatInfo();
+				PopulateStep2(m_tbCsvPath.Text.Trim(), fi.Format);
+				GoToStep(1, "Paso 2 de 3 - Revisar y seleccionar credenciales");
 				m_btnBack.Enabled = true;
 			}
-			else if(current == 1) // Paso 2 → 3
+			else if(current == 1)
 			{
 				PopulateStep3();
-				GoToStep(2, "Paso 3 de 3 — Confirmar importación");
+				GoToStep(2, "Paso 3 de 3 - Importar al grupo destino");
 				m_btnNext.Text = "Importar";
 			}
-			else if(current == 2) // Confirmar importación
+			else if(current == 2)
 			{
 				DoImport();
 			}
@@ -333,55 +406,88 @@ namespace KeePass.Forms
 			int current = m_tabs.SelectedIndex;
 			if(current == 1)
 			{
-				GoToStep(0, "Paso 1 de 3 — Seleccionar perfil");
+				GoToStep(0, "Paso 1 de 3 - Seleccionar archivo CSV");
 				m_btnBack.Enabled = false;
 			}
 			else if(current == 2)
 			{
-				GoToStep(1, "Paso 2 de 3 — Previsualizar credenciales");
+				GoToStep(1, "Paso 2 de 3 - Revisar y seleccionar credenciales");
 				m_btnNext.Text = "Siguiente >";
 				m_lblResult.Text = string.Empty;
 			}
 		}
 
-		// ── lógica de pasos ───────────────────────────────────────────────────────
+		private bool ValidateStep1()
+		{
+			if(GetSelectedFormatInfo() == null)
+			{
+				MessageBox.Show("Selecciona un formato de CSV.", "KeePass",
+					MessageBoxButtons.OK, MessageBoxIcon.Information);
+				return false;
+			}
 
-		private void PopulateStep2(BrowserProfile profile)
+			string path = (m_tbCsvPath.Text ?? string.Empty).Trim();
+			if(string.IsNullOrEmpty(path) || !File.Exists(path))
+			{
+				MessageBox.Show("Selecciona un archivo CSV válido.", "KeePass",
+					MessageBoxButtons.OK, MessageBoxIcon.Information);
+				return false;
+			}
+
+			return true;
+		}
+
+		private void PopulateStep2(string csvPath, BrowserCsvFormat format)
 		{
 			m_grid.Rows.Clear();
-			m_preview    = null;
+			m_preview = null;
 			m_duplicates = null;
 
-			try { m_preview = m_service.PreviewCredentials(profile); }
+			try { m_preview = m_service.PreviewCredentialsFromCsv(csvPath, format); }
 			catch(Exception ex)
 			{
-				MessageBox.Show("Error al leer credenciales: " + ex.Message,
-					"KeePass", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+				MessageBox.Show("Error leyendo CSV: " + ex.Message, "KeePass",
+					MessageBoxButtons.OK, MessageBoxIcon.Warning);
 				m_preview = new List<BrowserCredential>();
 			}
 
 			m_duplicates = m_service.DetectDuplicates(m_preview, m_db);
-			var dupSet   = new System.Collections.Generic.HashSet<BrowserCredential>(m_duplicates);
+			var dupSet = new HashSet<BrowserCredential>(m_duplicates);
 
-			foreach(BrowserCredential cred in m_preview)
+			for(int i = 0; i < m_preview.Count; ++i)
 			{
+				BrowserCredential cred = m_preview[i];
 				bool isDup = dupSet.Contains(cred);
 				m_grid.Rows.Add(!isDup, cred.Title, cred.Username, cred.Url,
 					isDup ? "Duplicado" : string.Empty);
 			}
 
 			int dupCount = m_duplicates.Count;
-			m_lblDupBadge.Text = dupCount > 0
-				? string.Format("⚠ {0} entrada{1} ya existe{2} en la base de datos.",
-					dupCount, dupCount == 1 ? string.Empty : "s",
-					dupCount == 1 ? " " : "n ")
+			m_lblDupBadge.Text = (dupCount > 0)
+				? string.Format("{0} entrada(s) ya existen en la base de datos.", dupCount)
 				: string.Empty;
+		}
+
+		private void OnExcludeDuplicates(object sender, EventArgs e)
+		{
+			for(int i = 0; i < m_grid.Rows.Count; ++i)
+			{
+				string dupText = Convert.ToString(m_grid.Rows[i].Cells[4].Value);
+				if(string.Equals(dupText, "Duplicado", StringComparison.OrdinalIgnoreCase))
+					m_grid.Rows[i].Cells[0].Value = false;
+			}
+		}
+
+		private void SetAllImportChecks(bool isChecked)
+		{
+			for(int i = 0; i < m_grid.Rows.Count; ++i)
+				m_grid.Rows[i].Cells[0].Value = isChecked;
 		}
 
 		private void PopulateStep3()
 		{
 			m_tvGroups.Nodes.Clear();
-			if(m_db != null && m_db.IsOpen && m_db.RootGroup != null)
+			if((m_db != null) && m_db.IsOpen && (m_db.RootGroup != null))
 				FillTreeView(m_tvGroups.Nodes, m_db.RootGroup);
 			if(m_tvGroups.Nodes.Count > 0)
 				m_tvGroups.SelectedNode = m_tvGroups.Nodes[0];
@@ -389,10 +495,13 @@ namespace KeePass.Forms
 
 		private void FillTreeView(TreeNodeCollection nodes, PwGroup group)
 		{
-			var node = new TreeNode(group.Name) { Tag = group };
+			TreeNode node = new TreeNode(group.Name);
+			node.Tag = group;
 			nodes.Add(node);
+
 			foreach(PwGroup child in group.Groups)
 				FillTreeView(node.Nodes, child);
+
 			node.Expand();
 		}
 
@@ -401,16 +510,15 @@ namespace KeePass.Forms
 			PwGroup targetGroup = null;
 			if(m_tvGroups.SelectedNode != null)
 				targetGroup = m_tvGroups.SelectedNode.Tag as PwGroup;
-			if(targetGroup == null && m_db != null)
+			if((targetGroup == null) && (m_db != null))
 				targetGroup = m_db.RootGroup;
 			if(targetGroup == null) return;
 
-			// Recoger solo las filas marcadas para importar.
 			var toImport = new List<BrowserCredential>();
-			for(int i = 0; i < m_grid.Rows.Count; i++)
+			for(int i = 0; i < m_grid.Rows.Count; ++i)
 			{
 				object chk = m_grid.Rows[i].Cells[0].Value;
-				if(chk is bool && (bool)chk)
+				if((chk is bool) && ((bool)chk))
 					toImport.Add(m_preview[i]);
 			}
 
@@ -423,14 +531,31 @@ namespace KeePass.Forms
 
 			m_result = m_service.Import(toImport, targetGroup, m_db);
 			m_lblResult.Text = m_result.ToString();
-			m_btnNext.Enabled  = false;
-			m_btnBack.Enabled  = false;
+			m_btnNext.Enabled = false;
+			m_btnBack.Enabled = false;
 		}
 
 		private void GoToStep(int index, string subtitle)
 		{
 			m_tabs.SelectedIndex = index;
-			m_lblSubtitle.Text   = subtitle;
+			m_lblSubtitle.Text = subtitle;
+		}
+
+		private void UpdateStep1State()
+		{
+			if(m_tabs == null || m_btnNext == null || m_cmbFormat == null || m_tbCsvPath == null)
+				return;
+
+			if(m_tabs.SelectedIndex != 0) return;
+
+			bool hasFormat = (GetSelectedFormatInfo() != null);
+			bool hasPath = !string.IsNullOrEmpty((m_tbCsvPath.Text ?? string.Empty).Trim());
+			m_btnNext.Enabled = hasFormat && hasPath;
+		}
+
+		private BrowserCsvFormatInfo GetSelectedFormatInfo()
+		{
+			return m_cmbFormat.SelectedItem as BrowserCsvFormatInfo;
 		}
 	}
 }

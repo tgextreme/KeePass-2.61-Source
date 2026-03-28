@@ -43,29 +43,84 @@ namespace KeePass.Tests.Services
             return new BrowserCredential(url, url, user, password, string.Empty);
         }
 
-        // ── GetAvailableProfiles ──────────────────────────────────────
+        // ── GetSupportedFormats ──────────────────────────────────────
 
         [TestMethod]
-        public void GetAvailableProfiles_ReturnsNonNullList()
+        public void GetSupportedFormats_ReturnsNonNullList()
         {
             var svc = new BrowserImportService();
-            List<BrowserProfile> profiles = svc.GetAvailableProfiles();
+            List<BrowserCsvFormatInfo> formats = svc.GetSupportedFormats();
 
-            // May be empty if no browser installed, but must not be null.
-            Assert.IsNotNull(profiles);
+            Assert.IsNotNull(formats);
+            Assert.IsTrue(formats.Count >= 4);
         }
 
         [TestMethod]
-        public void GetAvailableProfiles_EachProfileHasName()
+        public void GetSupportedFormats_EachFormatHasName()
         {
             var svc      = new BrowserImportService();
-            var profiles = svc.GetAvailableProfiles();
+            var formats = svc.GetSupportedFormats();
 
-            foreach(BrowserProfile p in profiles)
+            foreach(BrowserCsvFormatInfo f in formats)
             {
-                Assert.IsNotNull(p, "Profile should not be null");
-                Assert.IsFalse(string.IsNullOrEmpty(p.DisplayName),
+                Assert.IsNotNull(f, "Format should not be null");
+                Assert.IsFalse(string.IsNullOrEmpty(f.DisplayName),
                     "DisplayName should not be empty");
+            }
+        }
+
+        [TestMethod]
+        public void PreviewCredentialsFromCsv_ChromeStyle_ParsesRows()
+        {
+            var svc = new BrowserImportService();
+            string path = System.IO.Path.GetTempFileName();
+
+            try
+            {
+                string csv = "name,url,username,password,note\n" +
+                    "Example,https://example.com,alice,s3cr3t,n\n";
+                System.IO.File.WriteAllText(path, csv);
+
+                List<BrowserCredential> creds = svc.PreviewCredentialsFromCsv(
+                    path, BrowserCsvFormat.Chrome);
+
+                Assert.AreEqual(1, creds.Count);
+                Assert.AreEqual("Example", creds[0].Title);
+                Assert.AreEqual("alice", creds[0].Username);
+            }
+            finally
+            {
+                try { System.IO.File.Delete(path); } catch { }
+            }
+        }
+
+        [TestMethod]
+        public void PreviewCredentialsFromCsv_MissingPasswordColumn_ThrowsFormatException()
+        {
+            var svc = new BrowserImportService();
+            string path = System.IO.Path.GetTempFileName();
+
+            try
+            {
+                string csv = "name,url,username\n" +
+                    "Example,https://example.com,alice\n";
+                System.IO.File.WriteAllText(path, csv);
+
+                System.Exception caught = null;
+                try
+                {
+                    svc.PreviewCredentialsFromCsv(path, BrowserCsvFormat.Chrome);
+                }
+                catch(System.FormatException ex)
+                {
+                    caught = ex;
+                }
+
+                Assert.IsNotNull(caught, "Expected FormatException");
+            }
+            finally
+            {
+                try { System.IO.File.Delete(path); } catch { }
             }
         }
 

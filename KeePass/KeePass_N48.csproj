@@ -24,10 +24,12 @@
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\Build\KeePass\Debug\</OutputPath>
+    <OutputPath Condition="'$(BuildingForTests)' != 'true'">..\Build\KeePass\Debug\</OutputPath>
+    <OutputPath Condition="'$(BuildingForTests)' == 'true'">..\Build\KeePass\Debug.TestsRef\</OutputPath>
     <!-- IntermediateOutputPath = OutputPath: eliminar el paso de copia CopyFilesToOutputDirectory
          que falla cuando VS Code o VS tienen obj\Debug\KeePass.exe abierto durante la compilación. -->
-    <IntermediateOutputPath>..\Build\KeePass\Debug\</IntermediateOutputPath>
+    <IntermediateOutputPath Condition="'$(BuildingForTests)' != 'true'">..\Build\KeePass\Debug\</IntermediateOutputPath>
+    <IntermediateOutputPath Condition="'$(BuildingForTests)' == 'true'">..\Build\KeePass\Debug.TestsRef\</IntermediateOutputPath>
     <!-- OutputType condicional: WinExe por defecto (para ejecutar/depurar desde VS).
          Cuando KeePass.Tests compila esta dependencia pasa BuildingForTests=true → Library.
          Kaspersky AV quarantine los EXE recién compilados pero no los DLL. -->
@@ -42,7 +44,12 @@
     </DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
+    <!-- Configuración Release que genera un binario equivalente a Debug para
+         evitar el falso positivo HEUR:Trojan-PSW.Win32.Agent.gen de Kaspersky.
+         DebugSymbols=true + DebugType=full incrustan símbolos en el EXE (igual
+         que Debug). DefineConstants incluye TRACE. Optimize=false. -->
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
     <!-- Optimize=false: el binario optimizado dispara HEUR:Trojan-PSW.Win32.Agent.gen
          (el vtable dispatch de WinRT en WindowsHelloService genera un patrón bytecode
          compacto idéntico a vtable-hijacking de malware cuando el JIT los optimiza).
@@ -53,8 +60,7 @@
          directamente en el destino final, sin paso de copia intermedia.
          AV no puede bloquear el EXE entre escritura y copia porque no hay copia. -->
     <IntermediateOutputPath>..\Build\KeePass\Release\</IntermediateOutputPath>
-    <DefineConstants>
-    </DefineConstants>
+    <DefineConstants>TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
@@ -77,11 +83,6 @@
     <!-- F7 QR Code -->
     <Reference Include="QRCoder">
       <HintPath>..\packages\QRCoder.1.6.0\lib\net40\QRCoder.dll</HintPath>
-      <Private>true</Private>
-    </Reference>
-    <!-- F13 Browser Import - SQLite -->
-    <Reference Include="System.Data.SQLite">
-      <HintPath>..\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118.0\lib\net46\System.Data.SQLite.dll</HintPath>
       <Private>true</Private>
     </Reference>
   </ItemGroup>
@@ -1354,15 +1355,9 @@
     <Compile Include="Forms\QrCodeForm.cs">
       <SubType>Form</SubType>
     </Compile>
-    <!-- F13 Browser Import -->
+    <!-- F13 Browser Import (CSV-only para evitar heurísticas AV por acceso directo a credenciales del navegador) -->
     <Compile Include="Integration\BrowserImport\BrowserCredential.cs" />
     <Compile Include="Integration\BrowserImport\BrowserProfile.cs" />
-    <Compile Include="Integration\BrowserImport\IBrowserReader.cs" />
-    <Compile Include="Integration\BrowserImport\Chrome\ChromeBrowserReader.cs" />
-    <Compile Include="Integration\BrowserImport\Firefox\FirefoxBrowserReader.cs" />
-    <Compile Include="Infrastructure\BrowserImport\DpapiHelper.cs" />
-    <Compile Include="Infrastructure\BrowserImport\SqliteTempReader.cs" />
-    <Compile Include="Infrastructure\BrowserImport\FirefoxCryptoHelper.cs" />
     <Compile Include="Services\AppServices.cs" />
     <Compile Include="Services\IBrowserImportService.cs" />
     <Compile Include="Services\BrowserImportService.cs" />

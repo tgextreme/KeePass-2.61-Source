@@ -550,8 +550,8 @@ namespace KeePass.Forms
 			m_ctxEntryShowQr.Click += OnEntryShowQr;
 			m_ctxPwList.Items.Add(m_ctxEntryShowQr);
 
-			// F13 — Browser Import: "Importar desde navegador..." en el menú File (tras Import)
-			m_menuFileBrowserImport = new ToolStripMenuItem("Importar desde navegador...");
+			// F13 — Browser Import: "Importar desde CSV de navegador..." en menú File
+			m_menuFileBrowserImport = new ToolStripMenuItem("Importar desde CSV de navegador...");
 			m_menuFileBrowserImport.Click += OnFileBrowserImport;
 			int idxBrowserImport = m_menuFile.DropDownItems.IndexOf(m_menuFileImport);
 			if(idxBrowserImport >= 0)
