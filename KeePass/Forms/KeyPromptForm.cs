@@ -29,6 +29,7 @@ using System.Windows.Forms;
 
 using KeePass.App;
 using KeePass.App.Configuration;
+using KeePass.Integration.WindowsHello;
 using KeePass.Resources;
 using KeePass.UI;
 using KeePass.Util;
@@ -294,6 +295,9 @@ namespace KeePass.Forms
 			--m_uUIAutoBlocked;
 			UpdateUIState();
 
+			// F10 — Windows Hello: añadir controles si está disponible
+			try { InitWindowsHelloControls(); } catch { }
+
 			// Local, but thread will continue to run anyway
 			Thread th = new Thread(new ThreadStart(this.OnFormLoadAsync));
 			th.Start();
@@ -367,7 +371,113 @@ namespace KeePass.Forms
 		{
 			m_pKey = KeyUtil.KeyFromUI(m_cbPassword, null, m_tbPassword,
 				m_cbKeyFile, m_cmbKeyFile, m_cbUserAccount, m_ioInfo, m_bSecureDesktop);
-			if(m_pKey == null) this.DialogResult = DialogResult.None;
+			if(m_pKey == null) { this.DialogResult = DialogResult.None; return; }
+
+			// F10 — Si el usuario optó por guardar en Windows Hello, inscribir ahora
+			if(m_cbRememberWithHello != null && m_cbRememberWithHello.Checked)
+				WindowsHelloEnrollCurrent();
+		}
+
+		// F10 — Windows Hello: inicializar controles dinámicos ────────────────────
+
+		private Button m_btnWindowsHello = null;
+		private CheckBox m_cbRememberWithHello = null;
+
+		private void InitWindowsHelloControls()
+		{
+			if(!WindowsHelloService.Instance.IsAvailable()) return;
+
+			bool bEnrolled = WindowsHelloService.Instance.IsEnrolled(m_ioInfo.Path);
+
+			this.Height += DpiUtil.ScaleIntY(28);
+
+			if(bEnrolled)
+			{
+				// Botón de desbloqueo biométrico
+				m_btnWindowsHello = new Button();
+				m_btnWindowsHello.Text = "\uD83D\uDD13 Desbloquear con Windows Hello";
+				m_btnWindowsHello.AutoSize = true;
+				m_btnWindowsHello.Dock = DockStyle.Bottom;
+				m_btnWindowsHello.Height = DpiUtil.ScaleIntY(26);
+				m_btnWindowsHello.Click += OnWindowsHelloUnlock;
+				this.Controls.Add(m_btnWindowsHello);
+			}
+			else
+			{
+				// Checkbox para inscribirse en Windows Hello tras desbloqueo exitoso
+				m_cbRememberWithHello = new CheckBox();
+				m_cbRememberWithHello.Text = "Guardar clave en Windows Hello";
+				m_cbRememberWithHello.Dock = DockStyle.Bottom;
+				m_cbRememberWithHello.Height = DpiUtil.ScaleIntY(26);
+				m_cbRememberWithHello.Padding = new Padding(DpiUtil.ScaleIntX(4), 0, 0, 0);
+				this.Controls.Add(m_cbRememberWithHello);
+			}
+		}
+
+		private void OnWindowsHelloUnlock(object sender, EventArgs e)
+		{
+			HelloKeyData data = WindowsHelloService.Instance.RetrieveKey(
+				this.Handle, m_ioInfo.Path);
+
+			if(data == null)
+			{
+				MessageService.ShowWarning("No se pudo verificar con Windows Hello.",
+					"Introduce la contraseña maestra manualmente.");
+				return;
+			}
+
+			try
+			{
+				CompositeKey ck = new CompositeKey();
+
+				if(data.PasswordUtf8 != null && data.PasswordUtf8.Length > 0)
+				{
+					string pw = Encoding.UTF8.GetString(data.PasswordUtf8);
+					ck.AddUserKey(new KcpPassword(pw));
+					pw = null; // Ayuda al GC a liberar antes
+				}
+
+				if(!string.IsNullOrEmpty(data.KeyFilePath))
+					ck.AddUserKey(new KcpKeyFile(data.KeyFilePath));
+
+				if(data.HasUserAccount)
+					ck.AddUserKey(new KcpUserAccount());
+
+				m_pKey = ck;
+				this.DialogResult = DialogResult.OK;
+			}
+			finally
+			{
+				if(data.PasswordUtf8 != null)
+					Array.Clear(data.PasswordUtf8, 0, data.PasswordUtf8.Length);
+			}
+		}
+
+		private void WindowsHelloEnrollCurrent()
+		{
+			// Solo si hay una ruta de archivo válida para asociar la inscripción
+			if(string.IsNullOrEmpty(m_ioInfo.Path)) return;
+
+			byte[] pwBytes = null;
+			try
+			{
+				if(m_cbPassword.Checked && m_tbPassword.TextLength > 0)
+					pwBytes = Encoding.UTF8.GetBytes(m_tbPassword.Text);
+
+				string keyFile = (m_cbKeyFile.Checked) ? m_cmbKeyFile.Text : null;
+				bool ua = m_cbUserAccount.Checked;
+
+				WindowsHelloService.Instance.Enroll(pwBytes, keyFile, ua, m_ioInfo.Path);
+			}
+			catch(Exception ex)
+			{
+				MessageService.ShowWarning("No se pudo guardar la clave en Windows Hello:",
+					ex.Message);
+			}
+			finally
+			{
+				if(pwBytes != null) Array.Clear(pwBytes, 0, pwBytes.Length);
+			}
 		}
 
 		private void OnBtnCancel(object sender, EventArgs e)

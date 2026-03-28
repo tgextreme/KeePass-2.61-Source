@@ -68,6 +68,16 @@ namespace KeePass.Forms
 			Debug.Assert(!m_lblCopyright.AutoSize); // For RTL support
 			m_lblCopyright.Text = PwDefs.Copyright + ".";
 
+			// Atribución "Mejorado por Tomás González · 2026"
+			Label lblEnhanced = new Label();
+			lblEnhanced.Text = "Mejorado por Tom\u00e1s Gonz\u00e1lez \u00b7 2026";
+			lblEnhanced.Font = new Font(this.Font, FontStyle.Italic);
+			lblEnhanced.ForeColor = SystemColors.GrayText;
+			lblEnhanced.AutoSize = true;
+			lblEnhanced.Location = new Point(DpiUtil.ScaleIntX(13),
+				m_btnOK.Top + (m_btnOK.Height - lblEnhanced.PreferredHeight) / 2);
+			this.Controls.Add(lblEnhanced);
+
 			try { BuildComponentsList(strVersion); }
 			catch(Exception) { Debug.Assert(false); }
 

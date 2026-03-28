@@ -50,10 +50,21 @@
   <ItemGroup>
     <Reference Include="System" />
     <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
     <Reference Include="System.Drawing" />
     <Reference Include="System.Security" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
+    <!-- F7 QR Code -->
+    <Reference Include="QRCoder">
+      <HintPath>..\packages\QRCoder.1.6.0\lib\net40\QRCoder.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
+    <!-- F13 Browser Import - SQLite -->
+    <Reference Include="System.Data.SQLite">
+      <HintPath>..\packages\Stub.System.Data.SQLite.Core.NetFramework.1.0.118.0\lib\net46\System.Data.SQLite.dll</HintPath>
+      <Private>true</Private>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\KeePassLib\Collections\AutoTypeConfig.cs">
@@ -1314,6 +1325,33 @@
     <Compile Include="UI\MarkdownPreviewControl.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <!-- F15-B Dark Menu Renderer -->
+    <Compile Include="UI\DarkMenuRenderer.cs" />
+    <!-- F15-E Column Manager -->
+    <Compile Include="App\Configuration\AceColumnConfig.cs" />
+    <Compile Include="UI\ColumnManager.cs" />
+    <!-- F7 QR Code para móvil -->
+    <Compile Include="Infrastructure\QrGenerator.cs" />
+    <Compile Include="Forms\QrCodeForm.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <!-- F13 Browser Import -->
+    <Compile Include="Integration\BrowserImport\BrowserCredential.cs" />
+    <Compile Include="Integration\BrowserImport\BrowserProfile.cs" />
+    <Compile Include="Integration\BrowserImport\IBrowserReader.cs" />
+    <Compile Include="Integration\BrowserImport\Chrome\ChromeBrowserReader.cs" />
+    <Compile Include="Integration\BrowserImport\Firefox\FirefoxBrowserReader.cs" />
+    <Compile Include="Infrastructure\BrowserImport\DpapiHelper.cs" />
+    <Compile Include="Infrastructure\BrowserImport\SqliteTempReader.cs" />
+    <Compile Include="Infrastructure\BrowserImport\FirefoxCryptoHelper.cs" />
+    <Compile Include="Services\AppServices.cs" />
+    <Compile Include="Services\IBrowserImportService.cs" />
+    <Compile Include="Services\BrowserImportService.cs" />
+    <Compile Include="Forms\BrowserImportWizard.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Include="Integration\WindowsHello\IWindowsHelloService.cs" />
+    <Compile Include="Integration\WindowsHello\WindowsHelloService.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Resources\Nuvola\B16x16_1DownArrow.png" />

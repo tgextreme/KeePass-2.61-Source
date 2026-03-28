@@ -102,6 +102,12 @@ namespace KeePass.Forms
 		// F1 — HIBP Checker
 		private ToolStripMenuItem m_menuToolsHibpCheck = null;
 
+		// F7 — QR Code para móvil
+		private ToolStripMenuItem m_ctxEntryShowQr = null;
+
+		// F13 — Browser Import
+		private ToolStripMenuItem m_menuFileBrowserImport = null;
+
 		public MainForm()
 		{
 			try
@@ -467,9 +473,9 @@ namespace KeePass.Forms
 			Program.KeyProviderPool.Add(new KeePassLib.Keys.SampleKeyProvider());
 #endif
 
-			Program.ColumnProviderPool.Add(new FavoriteColumnProvider()); // F2 — Favoritos
-			Program.ColumnProviderPool.Add(new TotpColumnProvider());    // F6 — TOTP Column
-			Program.ColumnProviderPool.Add(new EntryStatusRenderer());  // F15-C — Estado de seguridad
+			// F15-E — Column Manager (registra FavoriteColumnProvider, TotpColumnProvider, EntryStatusRenderer)
+			ColumnManager.Initialize(Program.Config.ColumnConfig);
+			ColumnManager.EnsureDefaultAceColumns(Program.Config.MainWindow);
 			this.FileSaved += BackupService.OnDatabaseSaved; // F8 — Backup automático
 
 			TrayIconController.Initialize(m_ntfTray); // F16 — Tray state
@@ -538,6 +544,20 @@ namespace KeePass.Forms
 			m_ctxEntryDownloadFavicons.Click += OnEntryDownloadFavicons;
 			m_ctxPwList.Items.Add(new ToolStripSeparator());
 			m_ctxPwList.Items.Add(m_ctxEntryDownloadFavicons);
+
+			// F7 — QR Code: "Mostrar QR para móvil" en el menú contextual de entradas
+			m_ctxEntryShowQr = new ToolStripMenuItem("\uD83D\uDCF1 Mostrar QR para m\u00F3vil");
+			m_ctxEntryShowQr.Click += OnEntryShowQr;
+			m_ctxPwList.Items.Add(m_ctxEntryShowQr);
+
+			// F13 — Browser Import: "Importar desde navegador..." en el menú File (tras Import)
+			m_menuFileBrowserImport = new ToolStripMenuItem("Importar desde navegador...");
+			m_menuFileBrowserImport.Click += OnFileBrowserImport;
+			int idxBrowserImport = m_menuFile.DropDownItems.IndexOf(m_menuFileImport);
+			if(idxBrowserImport >= 0)
+				m_menuFile.DropDownItems.Insert(idxBrowserImport + 1, m_menuFileBrowserImport);
+			else
+				m_menuFile.DropDownItems.Add(m_menuFileBrowserImport);
 
 			// F1 — HIBP Checker: "Comprobar filtraciones (HIBP)..." en el menú Herramientas
 			m_menuToolsHibpCheck = new ToolStripMenuItem(
@@ -2969,6 +2989,32 @@ namespace KeePass.Forms
 				pd.Modified = true;
 				UpdateUI(false, null, false, null, true, null, true);
 			}
+		}
+
+		// ── F7: QR Code para móvil ────────────────────────────────────────────────
+
+		private void OnEntryShowQr(object sender, EventArgs e)
+		{
+			PwDatabase pd = m_docMgr.ActiveDatabase;
+			if((pd == null) || !pd.IsOpen) return;
+
+			PwEntry pe = GetSelectedEntry(false);
+			if(pe == null) return;
+
+			QrCodeForm.ShowQr(this, pe);
+		}
+
+		// ── F13: Browser Import ───────────────────────────────────────────────────
+
+		private void OnFileBrowserImport(object sender, EventArgs e)
+		{
+			PwDatabase pd = m_docMgr.ActiveDatabase;
+			if((pd == null) || !pd.IsOpen)
+			{
+				MessageService.ShowInfo("Por favor, abre una base de datos antes de importar.");
+				return;
+			}
+			BrowserImportWizard.ShowWizard(this, pd);
 		}
 	}
 }

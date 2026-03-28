@@ -283,6 +283,22 @@ namespace KeePass.App.Configuration
 			}
 		}
 
+		private AceColumnConfig m_columnConfig = null;
+		/// <summary>F15-E: configuración de columnas extendidas (TOTP, Favoritos, …).</summary>
+		public AceColumnConfig ColumnConfig
+		{
+			get
+			{
+				if(m_columnConfig == null) m_columnConfig = new AceColumnConfig();
+				return m_columnConfig;
+			}
+			set
+			{
+				if(value == null) throw new ArgumentNullException("value");
+				m_columnConfig = value;
+			}
+		}
+
 		private AceCustomConfig m_cc = null;
 		[XmlIgnore]
 		public AceCustomConfig CustomConfig
