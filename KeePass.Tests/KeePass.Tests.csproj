@@ -15,12 +15,14 @@
     <PackageReference Include="MSTest.TestFramework"   Version="3.2.2" />
   </ItemGroup>
 
-  <!-- ProjectReference: VS Code usa análisis de código fuente (no abre el binario).
-       Sin AdditionalProperties: KeePass compila a su ruta por defecto.
-       La compilación de tests se hace vía solution file para que MSBuild
-       gestione la referencia internamente en un solo proceso. -->
+  <!-- ProjectReference con BuildingForTests=true: KeePass compila como Library (DLL)
+       en lugar de WinExe. Kaspersky AV quarantine los EXE recién compilados pero no
+       los DLL, lo que permite que KeePass.Tests lea el ensamblado como referencia.
+       En VS (sin esta propiedad), KeePass sigue siendo WinExe ejecutable. -->
   <ItemGroup>
-    <ProjectReference Include="..\KeePass\KeePass_N48.csproj" />
+    <ProjectReference Include="..\KeePass\KeePass_N48.csproj">
+      <AdditionalProperties>BuildingForTests=true</AdditionalProperties>
+    </ProjectReference>
     <Reference Include="System.Drawing" />
     <Reference Include="System.Windows.Forms" />
   </ItemGroup>

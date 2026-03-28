@@ -28,10 +28,11 @@
     <!-- IntermediateOutputPath = OutputPath: eliminar el paso de copia CopyFilesToOutputDirectory
          que falla cuando VS Code o VS tienen obj\Debug\KeePass.exe abierto durante la compilación. -->
     <IntermediateOutputPath>..\Build\KeePass\Debug\</IntermediateOutputPath>
-    <!-- OutputType=Library para Debug: Kaspersky quarantine los EXE recién compilados.
-         Un DLL no es considerado ejecutable independiente, Kaspersky no lo quarantine.
-         Release sigue siendo WinExe. -->
-    <OutputType>Library</OutputType>
+    <!-- OutputType condicional: WinExe por defecto (para ejecutar/depurar desde VS).
+         Cuando KeePass.Tests compila esta dependencia pasa BuildingForTests=true → Library.
+         Kaspersky AV quarantine los EXE recién compilados pero no los DLL. -->
+    <OutputType Condition="'$(BuildingForTests)' != 'true'">WinExe</OutputType>
+    <OutputType Condition="'$(BuildingForTests)' == 'true'">Library</OutputType>
     <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
