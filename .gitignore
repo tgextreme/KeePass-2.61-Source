@@ -1,6 +1,7 @@
 # Salidas de compilación
 Build/KeePass/Debug/
 Build/KeePass/Release/
+Build/KeePass/Debug.TestsRef/
 Build/KeePassLib/
 Build/KeePassLib_Distrib/
 
@@ -25,6 +26,13 @@ Backup3/
 # Archivos temporales / notas locales
 f16_content.txt
 instrucciones.md
+
+# Resultados de test
+TestResults/
+**/TestResults/
+*.trx
+*.coverage
+*.coveragexml
 
 # Configuración local de KeePass (contiene rutas absolutas del equipo)
 Build/KeePass/Debug/KeePass.config.xml
