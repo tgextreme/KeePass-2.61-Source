@@ -19,6 +19,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
@@ -86,8 +87,13 @@ namespace KeePass.Integration.WindowsHello
 		// ── Constantes ───────────────────────────────────────────────────────────
 
 		private const string CredentialPrefix   = "KeePassMV:WH:";
-		private const uint   CRED_TYPE_GENERIC  = 1;
-		private const uint   CRED_PERSIST_LOCAL = 2; // CRED_PERSIST_LOCAL_MACHINE
+
+		// Directorio de almacenamiento (AppData en lugar de Credential Manager).
+		// Usar ficheros cifrados con ProtectedData evita los P/Invoke a advapi32.dll
+		// (CredWriteW/CredReadW) que los AV heurísticos confunden con credential stealers.
+		private static readonly string StoreDir = Path.Combine(
+			Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+			"KeePass", "wh");
 
 		// Flags en el primer byte del blob serializado
 		private const byte FLAG_PASSWORD     = 0x01;
@@ -106,42 +112,6 @@ namespace KeePass.Integration.WindowsHello
 		// (se usa sólo como fallback para vtable dispatch de GetResults)
 		private static readonly Guid IID_AsyncOpUCVR =
 			new Guid("A2670B25-3E81-426B-A89C-59D40E8D7F6B");
-
-		// ── P-Invoke: Windows Credential Manager ─────────────────────────────────
-
-		[StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-		private struct CREDENTIAL
-		{
-			public uint    Flags;
-			public uint    Type;
-			[MarshalAs(UnmanagedType.LPWStr)]
-			public string  TargetName;
-			[MarshalAs(UnmanagedType.LPWStr)]
-			public string  Comment;
-			public long    LastWritten;
-			public uint    CredentialBlobSize;
-			public IntPtr  CredentialBlob;
-			public uint    Persist;
-			public uint    AttributeCount;
-			public IntPtr  Attributes;
-			[MarshalAs(UnmanagedType.LPWStr)]
-			public string  TargetAlias;
-			[MarshalAs(UnmanagedType.LPWStr)]
-			public string  UserName;
-		}
-
-		[DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-		private static extern bool CredWriteW(ref CREDENTIAL credential, uint flags);
-
-		[DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-		private static extern bool CredReadW(string target, uint type, uint reserved,
-			out IntPtr pCredential);
-
-		[DllImport("advapi32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
-		private static extern bool CredDeleteW(string target, uint type, uint reserved);
-
-		[DllImport("advapi32.dll")]
-		private static extern void CredFree(IntPtr pCredential);
 
 		// ── P-Invoke: WinRT activation ────────────────────────────────────────────
 
@@ -216,12 +186,7 @@ namespace KeePass.Integration.WindowsHello
 		public bool IsEnrolled(string dbPath)
 		{
 			if(string.IsNullOrEmpty(dbPath)) return false;
-			string targetName = BuildTargetName(dbPath);
-
-			IntPtr pCred;
-			bool found = CredReadW(targetName, CRED_TYPE_GENERIC, 0, out pCred);
-			if(found) CredFree(pCred);
-			return found;
+			return File.Exists(BuildStorePath(dbPath));
 		}
 
 		// ── IWindowsHelloService: Enroll ─────────────────────────────────────────
@@ -234,41 +199,18 @@ namespace KeePass.Integration.WindowsHello
 			// Serializar
 			byte[] plainBlob = SerializeKeyData(passwordUtf8, keyFilePath, hasUserAccount);
 
-			// Cifrar con DPAPI (ámbito: usuario actual)
+			// Cifrar con ProtectedData (DPAPI, ámbito: usuario actual)
 			byte[] encryptedBlob = ProtectedData.Protect(plainBlob,
 				null, DataProtectionScope.CurrentUser);
 
 			// Limpiar plaintext
 			Array.Clear(plainBlob, 0, plainBlob.Length);
 
-			// Almacenar en Windows Credential Manager
-			string targetName = BuildTargetName(dbPath);
-			IntPtr pBlob = Marshal.AllocHGlobal(encryptedBlob.Length);
-			try
-			{
-				Marshal.Copy(encryptedBlob, 0, pBlob, encryptedBlob.Length);
-
-				var cred = new CREDENTIAL
-				{
-					Type             = CRED_TYPE_GENERIC,
-					TargetName       = targetName,
-					Comment          = "KeePass Modern Vibe – Windows Hello",
-					CredentialBlobSize = (uint)encryptedBlob.Length,
-					CredentialBlob   = pBlob,
-					Persist          = CRED_PERSIST_LOCAL,
-					UserName         = Environment.UserName,
-				};
-
-				if(!CredWriteW(ref cred, 0))
-					throw new InvalidOperationException(
-						"No se pudo almacenar la clave en Windows Credential Manager. " +
-						"Error: " + Marshal.GetLastWin32Error());
-			}
-			finally
-			{
-				Marshal.FreeHGlobal(pBlob);
-				Array.Clear(encryptedBlob, 0, encryptedBlob.Length);
-			}
+			// Almacenar en fichero en AppData (cifrado con ProtectedData)
+			string storePath = BuildStorePath(dbPath);
+			Directory.CreateDirectory(Path.GetDirectoryName(storePath));
+			File.WriteAllBytes(storePath, encryptedBlob);
+			Array.Clear(encryptedBlob, 0, encryptedBlob.Length);
 		}
 
 		// ── IWindowsHelloService: RetrieveKey ────────────────────────────────────
@@ -279,29 +221,18 @@ namespace KeePass.Integration.WindowsHello
 
 			// 1. Mostrar diálogo de Windows Hello
 			bool verified = PromptWindowsHello(ownerHwnd, "Desbloquear KeePass – " +
-				System.IO.Path.GetFileName(dbPath));
+				Path.GetFileName(dbPath));
 			if(!verified) return null;
 
-			// 2. Recuperar blob cifrado de Credential Manager
-			string targetName = BuildTargetName(dbPath);
-			IntPtr pCred;
-			if(!CredReadW(targetName, CRED_TYPE_GENERIC, 0, out pCred))
-				return null;
+			// 2. Leer blob cifrado del fichero
+			string storePath = BuildStorePath(dbPath);
+			if(!File.Exists(storePath)) return null;
 
 			byte[] encryptedBlob = null;
-			try
-			{
-				// Leer la estructura CREDENTIAL y después el blob
-				var cred = (CREDENTIAL)Marshal.PtrToStructure(pCred, typeof(CREDENTIAL));
-				if(cred.CredentialBlobSize == 0 || cred.CredentialBlob == IntPtr.Zero)
-					return null;
+			try   { encryptedBlob = File.ReadAllBytes(storePath); }
+			catch { return null; }
 
-				encryptedBlob = new byte[cred.CredentialBlobSize];
-				Marshal.Copy(cred.CredentialBlob, encryptedBlob, 0, (int)cred.CredentialBlobSize);
-			}
-			finally { CredFree(pCred); }
-
-			// 3. Descifrar con DPAPI
+			// 3. Descifrar con ProtectedData (DPAPI)
 			byte[] plainBlob = null;
 			try
 			{
@@ -324,7 +255,8 @@ namespace KeePass.Integration.WindowsHello
 		public void RemoveEnrollment(string dbPath)
 		{
 			if(string.IsNullOrEmpty(dbPath)) return;
-			CredDeleteW(BuildTargetName(dbPath), CRED_TYPE_GENERIC, 0);
+			string storePath = BuildStorePath(dbPath);
+			try { if(File.Exists(storePath)) File.Delete(storePath); } catch { }
 		}
 
 		// ── Verificación biométrica (WinRT COM) ───────────────────────────────────
@@ -507,15 +439,15 @@ namespace KeePass.Integration.WindowsHello
 
 		// ── Helpers ──────────────────────────────────────────────────────────────
 
-		private static string BuildTargetName(string dbPath)
+		/// <summary>Devuelve la ruta del fichero cifrado para la BD dada.</summary>
+		private static string BuildStorePath(string dbPath)
 		{
-			// Normalizar la ruta para uso como clave del Credential Manager
 			string normalized = dbPath.ToUpperInvariant().Trim();
-			// Hash SHA-256 truncado para que el nombre sea corto y no exponga la ruta
 			using(var sha = SHA256.Create())
 			{
 				byte[] hash = sha.ComputeHash(Encoding.Unicode.GetBytes(normalized));
-				return CredentialPrefix + BitConverter.ToString(hash, 0, 8).Replace("-", "");
+				string name = BitConverter.ToString(hash, 0, 16).Replace("-", "") + ".dat";
+				return Path.Combine(StoreDir, name);
 			}
 		}
 	}
